@@ -27,6 +27,7 @@ venv = ".venv"
 dev = [
     "pyright>=1.1.414",
     "pytest>=9.1.1",
+    "watchdog>=6.0.0",
 ]
 
 [tool.pytest.ini_options]
