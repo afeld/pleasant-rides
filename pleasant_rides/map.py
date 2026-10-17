@@ -9,16 +9,52 @@ from .models import Point, Route
 
 
 class OpenFreeMapLayer(JSCSSMixin, MacroElement):
-    """OpenFreeMap vector base map, rendered through MapLibre GL in Leaflet."""
+    """OpenFreeMap vector base map, rendered through MapLibre GL in Leaflet.
+
+    It's drawn as two layers from the same style: everything but the labels (street names, places, etc.) below the routes, and the labels above them, so the routes don't cover them up.
+    """
 
     _template = Template("""
         {% macro script(this, kwargs) %}
-        L.maplibreGL({
-            style: {{ this.style_url|tojson }},
-            attribution: {{ this.attribution|tojson }},
-            // without a tile layer, Leaflet has no max zoom, which breaks fit_bounds()
-            maxZoom: 19,
-        }).addTo({{ this._parent.get_name() }});
+        (function (map) {
+            // above the routes (Leaflet's overlay pane is 400), but below the start/end markers (600)
+            var labelsPane = map.createPane("labels");
+            labelsPane.style.zIndex = 450;
+            // so the routes' tooltips still work through it
+            labelsPane.style.pointerEvents = "none";
+
+            // a wide white halo, so the labels stay readable on top of the routes
+            function withHalo(layer) {
+                if (!layer.layout || !layer.layout["text-field"]) return layer;
+                return Object.assign({}, layer, {
+                    paint: Object.assign({}, layer.paint, {
+                        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+                        "text-halo-width": 2,
+                        "text-halo-blur": 0.5,
+                    }),
+                });
+            }
+
+            function addLayer(options, keepLayer, transformLayer) {
+                var layer = L.maplibreGL(Object.assign({
+                    // empty until the real style, filtered by setStyle() below, loads
+                    style: { version: 8, sources: {}, layers: [] },
+                    // without a tile layer, Leaflet has no max zoom, which breaks fit_bounds()
+                    maxZoom: 19,
+                }, options)).addTo(map);
+                layer.getMaplibreMap().setStyle({{ this.style_url|tojson }}, {
+                    transformStyle: function (previous, style) {
+                        var layers = style.layers.filter(keepLayer);
+                        return Object.assign({}, style, { layers: transformLayer ? layers.map(transformLayer) : layers });
+                    },
+                });
+            }
+
+            // the layers start out with an empty style, so they don't have an attribution yet when added
+            map.attributionControl.addAttribution({{ this.attribution|tojson }});
+            addLayer({}, function (l) { return l.type !== "symbol"; });
+            addLayer({ pane: "labels" }, function (l) { return l.type === "symbol"; }, withHalo);
+        })({{ this._parent.get_name() }});
         {% endmacro %}
     """)
 
