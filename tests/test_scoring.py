@@ -117,3 +117,21 @@ def test_quiet_is_the_share_away_from_busy_roads():
 
     assert measure([BIKE_PATH], NearBusyRoadsHalfTheTime())["quiet"] == 0.5
     assert measure([BIKE_PATH])["quiet"] is None
+
+
+def test_detour_is_distance_vs_a_straight_line():
+    detour = next(m for m in METRICS if m.key == "detour")
+    # POINTS are ~1.11 km apart, north-south
+    assert measure([BIKE_PATH])["detour"] == pytest.approx(1 / 1.11, rel=0.01)
+    assert measure([BIKE_PATH, BIKE_PATH, BIKE_PATH])["detour"] == pytest.approx(
+        3 / 1.11, rel=0.01
+    )
+    # direct routes on roads aren't penalized, and longer detours score lower
+    assert detour.score(1.1) == detour.score(1.3) == 1
+    assert detour.score(2) == 0.5
+    assert detour.score(1.5) > detour.score(2) > detour.score(3) > 0
+
+
+def test_detour_of_a_loop_is_none():
+    loop = Ride((POINTS[0], POINTS[1], POINTS[0]), [BIKE_PATH], None)
+    assert score(loop).values["detour"] is None

@@ -10,7 +10,7 @@ from .base import Provider
 
 URL = "https://brouter.de/brouter"
 
-# what the app uses: quaelnix-gravel (https://brouter.de/brouter/profiles2/quaelnix-gravel.brf), with its switches for considering traffic, preferring cycle routes, and avoiding steep inclines on. On the Benchmark page's sample trips it averaged 79.0, vs. 78.2 for pleasant.brf, though its long trip is ~4% longer than pleasant.brf's. Also turning on its preference for quiet areas (78.7), rivers (78.4), forests (76.3), or both (76.3) scored lower, as did adding a forest preference to pleasant.brf (76.5); the variants in benchmark/variants.py are the alternatives tried.
+# what the app uses: quaelnix-gravel (https://brouter.de/brouter/profiles2/quaelnix-gravel.brf), with its switches for considering traffic, preferring cycle routes, and avoiding steep inclines on. On the Benchmark page's sample trips it averaged 78.4, vs. 78.0 for pleasant.brf. Also turning on its preference for quiet areas (78.1; up to 77.9 when avoiding noise more strongly with quiet.brf), rivers (77.6), or forests (76.8) scored lower; the variants in benchmark/variants.py are the alternatives tried.
 DEFAULT_PROFILE = "quaelnix-gravel"
 DEFAULT_PARAMS = {
     "consider_traffic_estimate": True,

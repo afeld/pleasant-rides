@@ -3,6 +3,8 @@
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
+from pyproj import Geod
+
 from .edges import total_km
 from .map_matching import Edge
 from .models import Point
@@ -126,22 +128,44 @@ class Away(Near):
 
 
 @dataclass(frozen=True, kw_only=True)
-class Average(Metric):
-    """The distance-weighted average of `value` over the edges that `of` selects, where lower is better."""
+class LowerIsBetter(Metric):
+    """A value where lower is better, scored by how far it is above `best`."""
 
-    value: Callable[[Edge], float]
-    of: Callable[[list[Edge]], list[Edge]] = lambda edges: edges
-    # the best possible value, which scores 1
+    # the value at or below which it scores 1
     best: float
     # the value that scores 0.5
     half_score: float
     format: str = "%.1f"
+
+    def score(self, value: float):
+        half = self.half_score - self.best
+        return half / (half + max(value - self.best, 0))
+
+
+@dataclass(frozen=True, kw_only=True)
+class Average(LowerIsBetter):
+    """The distance-weighted average of `value` over the edges that `of` selects, where lower is better."""
+
+    value: Callable[[Edge], float]
+    of: Callable[[list[Edge]], list[Edge]] = lambda edges: edges
 
     def measure(self, ride: Ride):
         edges = self.of(ride.edges)
         km = total_km(edges)
         return sum(self.value(e) * e["length"] for e in edges) / km if km else None
 
-    def score(self, value: float):
-        half = self.half_score - self.best
-        return half / (half + max(value - self.best, 0))
+
+_GEOD = Geod(ellps="WGS84")
+
+
+@dataclass(frozen=True, kw_only=True)
+class Detour(LowerIsBetter):
+    """How many times longer the route is than a straight line between its ends."""
+
+    format: str = "%.2f"
+
+    def measure(self, ride: Ride):
+        (lat1, lon1), (lat2, lon2) = ride.points[0], ride.points[-1]
+        _, _, straight_m = _GEOD.inv(lon1, lat1, lon2, lat2)
+        km = total_km(ride.edges)
+        return km / (straight_m / 1000) if straight_m and km else None

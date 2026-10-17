@@ -20,11 +20,30 @@ from .edges import (
     total_km,
     turns,
 )
-from .metrics import Average, Away, Near, PassesPerKm, PerKm, Ride, Share, Total
+from .metrics import (
+    Average,
+    Away,
+    Detour,
+    Near,
+    PassesPerKm,
+    PerKm,
+    Ride,
+    Share,
+    Total,
+)
 
 # in the order they're shown, grouped as in the README
 METRICS = [
     Total("distance_km", "Distance (km)", compute=total_km),
+    # "not necessarily the most direct, but it shouldn't add a ton of time"
+    Detour(
+        "detour",
+        "Detour (×)",
+        "Distance vs. a straight line between the start and end; even direct routes on roads are typically ~1.3×",
+        weight=2,
+        best=1.3,
+        half_score=2,
+    ),
     # enjoyable
     Near(
         "green",
