@@ -24,8 +24,7 @@ def _decode_trip(trip: dict[str, Any]):
 
 
 # https://valhalla.github.io/valhalla/api/route/api-reference/#bicycle-costing-options
-# On the Benchmark page's sample trips these averaged 79.9, vs. 78.6 with the previous settings (bicycle_type "road",
-# use_roads 0.2, avoid_bad_surfaces 0.8); the variants in benchmark/variants.py are the alternatives tried.
+# On the Benchmark page's sample trips these averaged 75.3, vs. 74.4 with the previous settings (bicycle_type "road", use_roads 0.2, avoid_bad_surfaces 0.8). Avoiding hills more (use_hills 0.1 or 0) scored 75.4, but made the long trip ~4% longer, and accepting rougher surfaces (avoid_bad_surfaces 0.25) made no difference; the variants in benchmark/variants.py are the alternatives tried.
 PLEASANT_OPTIONS = {
     # assumes wider tires than "road", so crushed gravel and the like aren't avoided as much
     "bicycle_type": "hybrid",

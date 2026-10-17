@@ -10,7 +10,15 @@ from .base import Provider
 
 URL = "https://brouter.de/brouter"
 
-# our own profile, which gets uploaded to the server
+# what the app uses: quaelnix-gravel (https://brouter.de/brouter/profiles2/quaelnix-gravel.brf), with its switches for considering traffic, preferring cycle routes, and avoiding steep inclines on. On the Benchmark page's sample trips it averaged 79.0, vs. 78.2 for pleasant.brf, though its long trip is ~4% longer than pleasant.brf's. Also turning on its preference for quiet areas (78.7), rivers (78.4), forests (76.3), or both (76.3) scored lower, as did adding a forest preference to pleasant.brf (76.5); the variants in benchmark/variants.py are the alternatives tried.
+DEFAULT_PROFILE = "quaelnix-gravel"
+DEFAULT_PARAMS = {
+    "consider_traffic_estimate": True,
+    "prefer_cycle_routes": True,
+    "avoid_steep_inclines": True,
+}
+
+# our own profile, which gets uploaded to the server: "fastbike-lowtraffic" (https://brouter.de/brouter/profiles2/fastbike-lowtraffic.brf) plus penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads. It was the default before scenery, points of interest, and remoteness were scored.
 PLEASANT_PROFILE = Path(__file__).with_name("pleasant.brf")
 
 # a local profile's contents (as `_digest()`) -> the ID the server gave it when uploaded, so each version is only uploaded once. The server deletes uploaded profiles eventually (then answering with an empty 500), so an ID is forgotten whenever a request using it fails, and the profile gets uploaded again on the next try.
@@ -26,18 +34,14 @@ class BRouter(Provider):
     # a free public server
     request_interval_s = 2
 
-    # `profile` is one of the public server's profiles, listed at https://brouter.de/brouter/profiles2/, or a local
-    # .brf file. `params` overrides the profile's `assign` variables for a request, e.g. {"consider_traffic": 0.5}.
-    #
-    # pleasant.brf is "fastbike-lowtraffic" (https://brouter.de/brouter/profiles2/fastbike-lowtraffic.brf) plus
-    # penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads. On the Benchmark page's sample
-    # trips it averaged 81.8, vs. 78.7 for "fastbike-lowtraffic", though its long trip is ~11% longer; the variants in
-    # benchmark/variants.py are the alternatives tried.
+    # `profile` is one of the public server's profiles, listed at https://brouter.de/brouter/profiles2/, or a local .brf file. `params` overrides the profile's `assign` variables for a request, e.g. {"consider_traffic": 0.5}; without it, the default profile gets DEFAULT_PARAMS, and others none.
     def __init__(
-        self, profile: str | Path = PLEASANT_PROFILE, params: dict | None = None
+        self, profile: str | Path = DEFAULT_PROFILE, params: dict | None = None
     ):
         self.profile = profile
-        self.params = params or {}
+        if params is None:
+            params = DEFAULT_PARAMS if profile == DEFAULT_PROFILE else {}
+        self.params = params
 
     @property
     def cache_key(self):

@@ -2,7 +2,7 @@
 
 from ..providers import PROVIDERS
 from ..providers.base import Provider
-from ..providers.brouter import BRouter
+from ..providers.brouter import DEFAULT_PARAMS, PLEASANT_PROFILE, BRouter
 from ..providers.graphhopper import GraphHopper
 from ..providers.valhalla import PLEASANT_OPTIONS, Valhalla
 
@@ -34,10 +34,22 @@ VARIANTS: dict[str, Provider] = {
     ),
     "Valhalla: avoid ferries": Valhalla({**PLEASANT_OPTIONS, "use_ferry": 0.0}),
     "Valhalla: use_hills 0.1": Valhalla({**PLEASANT_OPTIONS, "use_hills": 0.1}),
-    "BRouter: pleasant, stronger penalties": BRouter(params=STRONGER_BROUTER),
-    "BRouter: pleasant + forests/rivers": BRouter(
-        params={"consider_forest": True, "consider_river": True}
+    "Valhalla: use_hills 0": Valhalla({**PLEASANT_OPTIONS, "use_hills": 0.0}),
+    # rougher surfaces, like gravel paths through parks
+    "Valhalla: avoid_bad_surfaces 0.25": Valhalla(
+        {**PLEASANT_OPTIONS, "avoid_bad_surfaces": 0.25}
     ),
+    "Valhalla: use_hills 0.1, avoid_bad_surfaces 0.25": Valhalla(
+        {**PLEASANT_OPTIONS, "use_hills": 0.1, "avoid_bad_surfaces": 0.25}
+    ),
+    "BRouter: pleasant": BRouter(PLEASANT_PROFILE),
+    "BRouter: pleasant, stronger penalties": BRouter(
+        PLEASANT_PROFILE, STRONGER_BROUTER
+    ),
+    "BRouter: pleasant + forests/rivers": BRouter(
+        PLEASANT_PROFILE, {"consider_forest": True, "consider_river": True}
+    ),
+    "BRouter: pleasant + forests": BRouter(PLEASANT_PROFILE, {"consider_forest": True}),
     **{
         f"BRouter: {profile}": BRouter(profile)
         for profile in [
@@ -48,13 +60,18 @@ VARIANTS: dict[str, Provider] = {
             "trekking",
         ]
     },
-    "BRouter: quaelnix-gravel, traffic/cycle routes/inclines": BRouter(
-        "quaelnix-gravel",
-        {
-            "consider_traffic_estimate": True,
-            "prefer_cycle_routes": True,
-            "avoid_steep_inclines": True,
-        },
+    # the current profile, quaelnix-gravel, with more of its switches on
+    "BRouter: current + forests": BRouter(
+        params={**DEFAULT_PARAMS, "consider_forests": True}
+    ),
+    "BRouter: current + rivers": BRouter(
+        params={**DEFAULT_PARAMS, "consider_rivers": True}
+    ),
+    "BRouter: current + forests/rivers": BRouter(
+        params={**DEFAULT_PARAMS, "consider_forests": True, "consider_rivers": True}
+    ),
+    "BRouter: current + noise": BRouter(
+        params={**DEFAULT_PARAMS, "consider_noise": True}
     ),
     # other cycling profiles and custom models need a paid plan
     "GraphHopper: custom model": GraphHopper(custom_model=True),
