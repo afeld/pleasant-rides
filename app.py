@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -34,13 +35,35 @@ except IndexError:
 
 status = st.empty()
 warnings = st.container()
-map_placeholder = st.empty()
+MAP_HEIGHT = 700
+# Streamlit swaps in a new iframe whenever the map changes. A fixed height keeps the page from briefly shrinking in
+# between, which would make the browser scroll back to the top.
+# (a bit taller than the map itself, which otherwise doesn't quite fit and scrolls)
+map_placeholder = st.container(height=MAP_HEIGHT + 16, border=False).empty()
+
+PARTIAL_MAP_AFTER_S = 1
+
+# keyed by the places, so a new search starts without a selection
+table_key = f"scores:{origin_point}:{destination_point}"
+# the (provider, label) of each row, saved when the table was drawn, since selections only give row numbers
+row_ids = st.session_state.get(f"{table_key}:ids", [])
+selected_rows = st.session_state[table_key].selection.rows if table_key in st.session_state else []
+highlight = row_ids[selected_rows[0]] if selected_rows else None
+
+
+def draw_map(provider_routes):
+    # keep the layers in a consistent order
+    ordered = {n: provider_routes[n] for n in PROVIDERS if provider_routes.get(n)}
+    if ordered:
+        with map_placeholder:
+            components.html(build_map(ordered, highlight).get_root().render(), height=MAP_HEIGHT)
 
 
 async def show_routes():
     provider_routes = {}
     pending = set(PROVIDERS)
     status.caption(f"Waiting on: {', '.join(sorted(pending))}")
+    started = time.monotonic()
     async for name, routes, error in iter_routes(origin_point, destination_point, fetch=cached_fetch_routes):
         pending.discard(name)
         if error:
@@ -49,12 +72,12 @@ async def show_routes():
             provider_routes[name] = routes
         status.caption(f"Waiting on: {', '.join(sorted(pending))}" if pending else "")
 
-        # redraw as results come in, keeping the layers in a consistent order
-        ordered = {n: provider_routes[n] for n in PROVIDERS if provider_routes.get(n)}
-        if ordered:
-            with map_placeholder:
-                components.html(build_map(ordered).get_root().render(), height=700)
+        # show partial results while waiting on slow providers. Cached ones all come back at once, so redrawing for
+        # each of those would only make the map flicker.
+        if pending and time.monotonic() - started > PARTIAL_MAP_AFTER_S:
+            draw_map(provider_routes)
 
+    draw_map(provider_routes)
     if not any(provider_routes.values()):
         st.error("No provider returned a route.")
         return
@@ -80,11 +103,16 @@ async def show_scores(provider_routes):
         else:
             rows.append({"Provider": provider, "Route": label, **result})
     rows.sort(key=lambda row: row["score"], reverse=True)
+    st.session_state[f"{table_key}:ids"] = [(row["Provider"], row["Route"]) for row in rows]
 
     share = st.column_config.ProgressColumn
     st.subheader("Scores")
+    st.caption("Select a row to highlight that route on the map.")
     st.dataframe(
         rows,
+        key=table_key,
+        on_select="rerun",
+        selection_mode="single-row",
         hide_index=True,
         column_config={
             "score": st.column_config.ProgressColumn("Score", format="%.0f", min_value=0, max_value=100),

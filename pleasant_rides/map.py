@@ -103,8 +103,11 @@ class RouteTooltip(MacroElement):
 COLORS = ["#E63946", "#1D3557", "#2A9D8F", "#F4A261", "#457B9D", "#8338EC"]
 
 
-def build_map(provider_routes):
-    """`provider_routes` maps provider name -> list of (label, points). One toggleable layer per provider."""
+def build_map(provider_routes, highlight=None):
+    """`provider_routes` maps provider name -> list of (label, points). One toggleable layer per provider.
+
+    `highlight` is an optional (provider, label) to draw on top of the others, which are faded, and zoom to.
+    """
     all_points = [
         pt
         for routes in provider_routes.values()
@@ -117,6 +120,7 @@ def build_map(provider_routes):
     m = folium.Map(location=all_points[0], zoom_start=14, tiles=None)
     OpenFreeMapLayer().add_to(m)
 
+    highlighted = None
     for idx, (provider, routes) in enumerate(provider_routes.items()):
         color = COLORS[idx % len(COLORS)]
         layer = folium.FeatureGroup(
@@ -124,7 +128,9 @@ def build_map(provider_routes):
             name=f'<span style="color:{color}; font-size:1.2em">&#9632;</span> {provider}'
         )
         for label, points in routes:
-            line = folium.PolyLine(points, color=color, weight=5, opacity=0.8)
+            if (provider, label) == highlight:
+                highlighted = (color, points)
+            line = folium.PolyLine(points, color=color, weight=5, opacity=0.3 if highlight else 0.8)
             # folium drops unknown options in the constructor; RouteTooltip reads this one
             line.options["routeLabel"] = f'<span style="color:{color}">&#9632;</span> {provider}: {label}'
             line.add_to(layer)
@@ -134,8 +140,17 @@ def build_map(provider_routes):
     folium.Marker(first[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
     folium.Marker(first[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
 
-    lats = [p[0] for p in all_points]
-    lons = [p[1] for p in all_points]
+    if highlighted:
+        color, points = highlighted
+        # in its own group, outside the layer control, so it's drawn above every provider's layer
+        overlay = folium.FeatureGroup(control=False)
+        folium.PolyLine(points, color="white", weight=11, opacity=1).add_to(overlay)
+        folium.PolyLine(points, color=color, weight=7, opacity=1).add_to(overlay)
+        overlay.add_to(m)
+
+    bounds_points = highlighted[1] if highlighted else all_points
+    lats = [p[0] for p in bounds_points]
+    lons = [p[1] for p in bounds_points]
     m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
     folium.LayerControl(collapsed=False).add_to(m)
     RouteTooltip().add_to(m)
