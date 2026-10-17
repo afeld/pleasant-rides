@@ -62,9 +62,15 @@ def _latest_release():
     return overture.latest_release()
 
 
+# on disk, so restarting the app doesn't need the STAC server (which rate-limits); a release's index doesn't change
+_fetch_stac_index = st.cache_data(show_spinner=False, persist="disk")(
+    overture.fetch_stac_index
+)
+
+
 @st.cache_data(show_spinner=False, persist="disk")
 async def _get_tile(code: str, release: str, x: int, y: int, zoom: int):
-    return await overture.get_tile(release, x, y, zoom)
+    return await overture.get_tile(release, x, y, zoom, _fetch_stac_index)
 
 
 @st.cache_resource
