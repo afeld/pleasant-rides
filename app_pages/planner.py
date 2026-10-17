@@ -9,7 +9,8 @@ from pleasant_rides.map import build_map
 from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
-from pleasant_rides.scoring import METRICS, score
+from pleasant_rides.scoring import METRICS, Scorecard, score
+from pleasant_rides.surroundings import Surroundings
 
 st.title("Pleasant Ride Planner")
 
@@ -103,7 +104,14 @@ def column(metric: Metric):
 
 
 async def show_scores(provider_routes: dict[str, list[Route]]):
-    routes = all_routes(provider_routes)
+    scored = await score_routes(all_routes(provider_routes))
+    scored.sort(key=lambda pair: pair[1].total, reverse=True)
+    st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
+    show_score_table(scored)
+
+
+async def score_routes(routes: list[Route]):
+    """Returns [(route, Scorecard), ...], warning about any routes that couldn't be scored."""
     # the surroundings of all the routes are fetched at once, since they mostly overlap
     surroundings_task = asyncio.create_task(
         get_surroundings(tuple(route.points for route in routes))
@@ -111,14 +119,8 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     results = await asyncio.gather(
         *(get_edges(route.points) for route in routes), return_exceptions=True
     )
-    try:
-        surroundings = await surroundings_task
-    except Exception as error:
-        st.warning(
-            f"Couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({type(error).__name__}: {error})"
-        )
-        surroundings = None
-    scored = []
+    surroundings = await surroundings_or_warn(surroundings_task)
+    scored: list[tuple[Route, Scorecard]] = []
     for route, result in zip(routes, results):
         if isinstance(result, BaseException):
             st.warning(
@@ -128,8 +130,20 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
             )
         else:
             scored.append((route, score(Ride(route.points, result, surroundings))))
-    scored.sort(key=lambda pair: pair[1].total, reverse=True)
-    st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
+    return scored
+
+
+async def surroundings_or_warn(task: asyncio.Task[Surroundings]):
+    try:
+        return await task
+    except Exception as error:
+        st.warning(
+            f"Couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({type(error).__name__}: {error})"
+        )
+        return None
+
+
+def show_score_table(scored: list[tuple[Route, Scorecard]]):
     rows = [
         {
             "Provider": route.provider,
@@ -139,7 +153,6 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
         }
         for route, card in scored
     ]
-
     st.subheader("Scores")
     st.caption("Select a row to highlight that route on the map.")
     st.dataframe(

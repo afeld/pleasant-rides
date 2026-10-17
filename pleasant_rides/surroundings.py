@@ -137,18 +137,29 @@ async def get_surroundings(routes: Sequence[Sequence[Point]]):
     """Fetches the features around `routes`, each a list of (lat, lon) points."""
     lats = [lat for points in routes for lat, _ in points]
     lons = [lon for points in routes for _, lon in points]
+    # a local projection in meters, so distances can be measured directly
     crs = CRS.from_proj4(
         f"+proj=aeqd +lat_0={np.mean(lats)} +lon_0={np.mean(lons)} +units=m"
     )
     to_local = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+    layers = _layers(*await _read_all(_bbox(lats, lons, crs, to_local)))
+    return Surroundings(
+        crs, {name: _project(geoms, to_local) for name, geoms in layers.items()}
+    )
+
+
+def _bbox(lats: list[float], lons: list[float], crs: CRS, to_local: Transformer):
+    """A (lon, lat) box around the points, wide enough to include anything within HELP_M of them."""
     to_lonlat = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
-    # wide enough to include anything within HELP_M of the routes
     x, y = to_local.transform(lons, lats)
-    bbox = to_lonlat.transform_bounds(
+    return to_lonlat.transform_bounds(
         min(x) - HELP_M, min(y) - HELP_M, max(x) + HELP_M, max(y) + HELP_M
     )
 
-    places, land_cover, land_use, water = await asyncio.gather(
+
+async def _read_all(bbox: tuple[float, ...]):
+    """The places, land cover, land use, and water in `bbox`, read in parallel."""
+    return await asyncio.gather(
         asyncio.to_thread(
             _read,
             "place",
@@ -160,11 +171,19 @@ async def get_surroundings(routes: Sequence[Sequence[Point]]):
         asyncio.to_thread(_read, "water", bbox, ["geometry", "subtype", "class"]),
     )
 
+
+def _layers(
+    places: pa.Table | None,
+    land_cover: pa.Table | None,
+    land_use: pa.Table | None,
+    water: pa.Table | None,
+):
+    """Layer name -> the geometries of its features, in (lon, lat)."""
     open_place = (pc.field("confidence") >= MIN_CONFIDENCE) & (
         pc.field("operating_status").is_null()
         | (pc.field("operating_status") != "permanently_closed")
     )
-    layers = {
+    return {
         "green": np.concatenate(
             [
                 _geometries(land_cover, pc.field("subtype").isin(GREEN_LAND_COVER)),
@@ -181,6 +200,3 @@ async def get_surroundings(routes: Sequence[Sequence[Point]]):
         ),
         "help": _geometries(places, open_place),
     }
-    return Surroundings(
-        crs, {name: _project(geoms, to_local) for name, geoms in layers.items()}
-    )

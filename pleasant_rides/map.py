@@ -1,9 +1,11 @@
+from collections.abc import Sequence
+
 import folium
 from branca.element import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
-from .models import Route
+from .models import Point, Route
 
 
 class OpenFreeMapLayer(JSCSSMixin, MacroElement):
@@ -110,9 +112,6 @@ def build_map(routes: list[Route], highlight: Route | None = None):
 
     `highlight` is an optional `Route` to draw on top of the others, which are faded, and zoom to.
     """
-    provider_routes: dict[str, list[Route]] = {}
-    for route in routes:
-        provider_routes.setdefault(route.provider, []).append(route)
     all_points = [pt for route in routes for pt in route.points]
     if not all_points:
         raise ValueError("no routes to map")
@@ -120,42 +119,69 @@ def build_map(routes: list[Route], highlight: Route | None = None):
     m = folium.Map(location=all_points[0], zoom_start=14, tiles=None)
     OpenFreeMapLayer().add_to(m)
 
-    highlighted = None
-    for idx, (provider, routes) in enumerate(provider_routes.items()):
+    highlight_color = None
+    for idx, (provider, provider_routes) in enumerate(_by_provider(routes).items()):
         color = COLORS[idx % len(COLORS)]
-        layer = folium.FeatureGroup(
-            # Leaflet's layer control renders names as HTML, so add a color swatch
-            name=f'<span style="color:{color}; font-size:1.2em">&#9632;</span> {provider}'
+        _provider_layer(provider, provider_routes, color, faded=bool(highlight)).add_to(
+            m
         )
-        for route in routes:
-            if highlight and route.id == highlight.id:
-                highlighted = (color, route.points)
-            line = folium.PolyLine(
-                route.points, color=color, weight=5, opacity=0.3 if highlight else 0.8
-            )
-            # folium drops unknown options in the constructor; RouteTooltip reads this one
-            line.options["routeLabel"] = (
-                f'<span style="color:{color}">&#9632;</span> {provider}: {route.label}'
-            )
-            line.add_to(layer)
-        layer.add_to(m)
+        if highlight and any(r.id == highlight.id for r in provider_routes):
+            highlight_color = color
 
-    first = routes[0].points
-    folium.Marker(first[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
-    folium.Marker(first[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
-
-    if highlighted:
-        color, points = highlighted
-        # in its own group, outside the layer control, so it's drawn above every provider's layer
-        overlay = folium.FeatureGroup(control=False)
-        folium.PolyLine(points, color="white", weight=11, opacity=1).add_to(overlay)
-        folium.PolyLine(points, color=color, weight=7, opacity=1).add_to(overlay)
-        overlay.add_to(m)
-
-    bounds_points = highlighted[1] if highlighted else all_points
-    lats = [p[0] for p in bounds_points]
-    lons = [p[1] for p in bounds_points]
-    m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+    _add_endpoints(m, routes[0])
+    if highlight and highlight_color:
+        _add_highlight(m, highlight, highlight_color)
+        _fit(m, highlight.points)
+    else:
+        _fit(m, all_points)
     folium.LayerControl(collapsed=False).add_to(m)
     RouteTooltip().add_to(m)
     return m
+
+
+def _by_provider(routes: list[Route]):
+    """Provider name -> its routes, in the order the providers first appear."""
+    provider_routes: dict[str, list[Route]] = {}
+    for route in routes:
+        provider_routes.setdefault(route.provider, []).append(route)
+    return provider_routes
+
+
+def _provider_layer(provider: str, routes: list[Route], color: str, faded: bool):
+    layer = folium.FeatureGroup(
+        # Leaflet's layer control renders names as HTML, so add a color swatch
+        name=f'<span style="color:{color}; font-size:1.2em">&#9632;</span> {provider}'
+    )
+    for route in routes:
+        line = folium.PolyLine(
+            route.points, color=color, weight=5, opacity=0.3 if faded else 0.8
+        )
+        # folium drops unknown options in the constructor; RouteTooltip reads this one
+        line.options["routeLabel"] = (
+            f'<span style="color:{color}">&#9632;</span> {provider}: {route.label}'
+        )
+        line.add_to(layer)
+    return layer
+
+
+def _add_endpoints(m: folium.Map, route: Route):
+    folium.Marker(
+        route.points[0], tooltip="Start", icon=folium.Icon(color="green")
+    ).add_to(m)
+    folium.Marker(
+        route.points[-1], tooltip="End", icon=folium.Icon(color="red")
+    ).add_to(m)
+
+
+def _add_highlight(m: folium.Map, route: Route, color: str):
+    # in its own group, outside the layer control, so it's drawn above every provider's layer
+    overlay = folium.FeatureGroup(control=False)
+    folium.PolyLine(route.points, color="white", weight=11, opacity=1).add_to(overlay)
+    folium.PolyLine(route.points, color=color, weight=7, opacity=1).add_to(overlay)
+    overlay.add_to(m)
+
+
+def _fit(m: folium.Map, points: Sequence[Point]):
+    lats = [p[0] for p in points]
+    lons = [p[1] for p in points]
+    m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
