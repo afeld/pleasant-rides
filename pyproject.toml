@@ -9,5 +9,6 @@ dependencies = [
     "httpx>=0.28.1",
     "ipykernel>=7.3.0",
     "polyline>=2.0.4",
-    "streamlit>=1.65.0",
+    # 1.64.0 added st.cache_data support for async functions
+    "streamlit>=1.64.0",
 ]

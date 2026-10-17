@@ -22,7 +22,7 @@ PLEASANT_MODEL = {
 }
 
 
-def get_routes(origin, destination, profile="bike", custom_model=False):
+async def get_routes(origin, destination, profile="bike", custom_model=False):
     """Requires GRAPHHOPPER_API_KEY (sign up at https://www.graphhopper.com).
 
     `custom_model=True` applies PLEASANT_MODEL, which needs a paid plan ("flexible mode").
@@ -42,7 +42,8 @@ def get_routes(origin, destination, profile="bike", custom_model=False):
     if custom_model:
         body["custom_model"] = PLEASANT_MODEL
         body["ch.disable"] = True
-    response = httpx.post(URL, params={"key": api_key}, json=body, timeout=60.0)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(URL, params={"key": api_key}, json=body, timeout=60.0)
     if response.is_error:
         # the status alone doesn't say what was wrong with the request
         raise RuntimeError(f"GraphHopper {response.status_code}: {response.json().get('message')}")

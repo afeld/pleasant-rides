@@ -16,7 +16,7 @@ def _decode_trip(trip):
     return points
 
 
-def get_routes(origin, destination):
+async def get_routes(origin, destination):
     params = {
         "locations": [
             {"lat": origin["lat"], "lon": origin["lon"]},
@@ -34,11 +34,12 @@ def get_routes(origin, destination):
         },
         "directions_options": {"units": "miles"},
     }
-    response = httpx.get(
-        URL,
-        params={"json": json.dumps(params, separators=(",", ":"))},
-        timeout=60.0,
-    )
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            URL,
+            params={"json": json.dumps(params, separators=(",", ":"))},
+            timeout=60.0,
+        )
     response.raise_for_status()
     payload = response.json()
 

@@ -2,6 +2,7 @@
 
 `origin` and `destination` are dicts with `lat` and `lon` keys.
 """
+import asyncio
 import os
 import re
 
@@ -29,20 +30,22 @@ def redact(text):
     return _SECRET_PARAM.sub(r"\1<redacted>", text)
 
 
-def fetch_routes(name, origin, destination):
-    return PROVIDERS[name](origin, destination)
+async def fetch_routes(name, origin, destination):
+    return await PROVIDERS[name](origin, destination)
 
 
-def get_all_routes(origin, destination, fetch=fetch_routes):
-    """Returns (provider name -> routes, messages about providers that failed and were skipped).
+async def iter_routes(origin, destination, fetch=fetch_routes):
+    """Runs every provider concurrently, yielding `(name, routes, error)` as each one finishes.
 
+    `error` is a (redacted) message when the provider failed, e.g. from a missing API key, and `routes` is then None.
     `fetch(name, origin, destination)` defaults to calling the provider directly; pass a cached version to reuse results.
     """
-    provider_routes = {}
-    skipped = []
-    for name in PROVIDERS:
+
+    async def run(name):
         try:
-            provider_routes[name] = fetch(name, origin, destination)
-        except Exception as e:  # e.g. missing API key
-            skipped.append(redact(f"{name}: skipped ({type(e).__name__}: {e})"))
-    return provider_routes, skipped
+            return name, await fetch(name, origin, destination), None
+        except Exception as e:
+            return name, None, redact(f"{name}: skipped ({type(e).__name__}: {e})")
+
+    for next_done in asyncio.as_completed([run(name) for name in PROVIDERS]):
+        yield await next_done

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import subprocess
 from pathlib import Path
@@ -6,30 +7,39 @@ SOURCE = Path(__file__).with_suffix(".swift")
 BINARY = Path(__file__).parent / ".build" / "apple"
 
 
-def _binary():
+async def _run(*args, timeout):
+    process = await asyncio.create_subprocess_exec(
+        *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
+    except TimeoutError:
+        process.kill()
+        raise
+    if process.returncode:
+        raise subprocess.CalledProcessError(process.returncode, args, stdout, stderr.decode())
+    return stdout
+
+
+async def _binary():
     # compiling takes ~20s, so only do it when the source changes
     if not BINARY.exists() or BINARY.stat().st_mtime < SOURCE.stat().st_mtime:
         BINARY.parent.mkdir(exist_ok=True)
-        subprocess.run(["swiftc", "-O", str(SOURCE), "-o", str(BINARY)], check=True)
+        await _run("swiftc", "-O", str(SOURCE), "-o", str(BINARY), timeout=300)
     return BINARY
 
 
-def get_routes(origin, destination):
+async def get_routes(origin, destination):
     """Requires macOS with the Xcode command line tools. Uses on-device MapKit, so no API key."""
-    result = subprocess.run(
-        [
-            str(_binary()),
-            str(origin["lat"]),
-            str(origin["lon"]),
-            str(destination["lat"]),
-            str(destination["lon"]),
-        ],
-        capture_output=True,
-        text=True,
+    stdout = await _run(
+        str(await _binary()),
+        str(origin["lat"]),
+        str(origin["lon"]),
+        str(destination["lat"]),
+        str(destination["lon"]),
         timeout=60,
-        check=True,
     )
-    routes = json.loads(result.stdout)
+    routes = json.loads(stdout)
     return [
         (f"Apple {i}", [tuple(p) for p in points])
         for i, points in enumerate(routes, start=1)

@@ -1389,7 +1389,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipykernel", specifier = ">=7.3.0" },
     { name = "polyline", specifier = ">=2.0.4" },
-    { name = "streamlit", specifier = ">=1.65.0" },
+    { name = "streamlit", specifier = ">=1.64.0" },
 ]
 
 [[package]]
