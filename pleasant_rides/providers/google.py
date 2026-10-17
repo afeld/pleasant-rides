@@ -1,8 +1,8 @@
 from typing import Any
 
-import httpx
 import polyline
 
+from .. import http_client
 from ..models import Point
 from .base import Provider
 
@@ -24,7 +24,7 @@ class Google(Provider):
         def waypoint(p: Point):
             return {"location": {"latLng": {"latitude": p.lat, "longitude": p.lon}}}
 
-        async with httpx.AsyncClient() as client:
+        async with http_client.client() as client:
             response = await client.post(
                 URL,
                 headers={

@@ -1,5 +1,4 @@
-import httpx
-
+from .. import http_client
 from ..models import Point
 from .base import Provider
 
@@ -14,7 +13,7 @@ class Cyclemate(Provider):
 
     async def fetch(self, origin: Point, destination: Point):
         api_key = self.api_key
-        async with httpx.AsyncClient() as client:
+        async with http_client.client() as client:
             response = await client.post(
                 URL,
                 headers={"apikey": api_key},

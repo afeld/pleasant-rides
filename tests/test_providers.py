@@ -4,6 +4,7 @@ import json
 import httpx
 import pytest
 
+from pleasant_rides.http_client import USER_AGENT
 from pleasant_rides.models import Point
 from pleasant_rides.politeness import ProviderError, is_rate_limited, is_retryable
 from pleasant_rides.providers import iter_routes, redact
@@ -170,3 +171,10 @@ def test_brouter_errors(monkeypatch, status, text, retryable, rate_limited):
         asyncio.run(BRouter("trekking").get_routes(ORIGIN, DESTINATION))
     assert is_retryable(error.value) == retryable
     assert is_rate_limited(error.value) == rate_limited
+
+
+def test_requests_identify_the_app(requests):
+    asyncio.run(BRouter("trekking").get_routes(ORIGIN, DESTINATION))
+    (route,) = requests
+    assert route.headers["User-Agent"] == USER_AGENT
+    assert "github.com/afeld/pleasant-rides" in USER_AGENT

@@ -1,5 +1,4 @@
-import httpx
-
+from .. import http_client
 from ..models import Point
 from ..politeness import status_error
 from .base import Provider
@@ -63,7 +62,7 @@ class GraphHopper(Provider):
         if self.custom_model:
             body["custom_model"] = PLEASANT_MODEL
             body["ch.disable"] = True
-        async with httpx.AsyncClient() as client:
+        async with http_client.client() as client:
             response = await client.post(
                 URL, params={"key": api_key}, json=body, timeout=60.0
             )

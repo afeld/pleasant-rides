@@ -3,6 +3,7 @@ from pathlib import Path
 
 import httpx
 
+from .. import http_client
 from ..models import Point
 from ..politeness import ProviderError
 from .base import Provider
@@ -56,7 +57,7 @@ class BRouter(Provider):
 
     async def fetch(self, origin: Point, destination: Point):
         # https://github.com/abrensch/brouter/blob/master/docs/developers/http_server.md
-        async with httpx.AsyncClient() as client:
+        async with http_client.client() as client:
             response = await client.get(
                 URL,
                 params={

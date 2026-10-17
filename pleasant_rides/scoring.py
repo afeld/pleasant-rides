@@ -7,9 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-import httpx
-
-from . import surroundings
+from . import http_client, surroundings
 from .models import Point
 from .politeness import status_error, wait_turn
 from .providers import valhalla
@@ -74,7 +72,7 @@ async def get_edges(points: Sequence[Point]):
         "filters": {"attributes": ATTRIBUTES, "action": "include"},
     }
     await wait_turn(valhalla.SERVER, valhalla.REQUEST_INTERVAL_S)
-    async with httpx.AsyncClient() as client:
+    async with http_client.client() as client:
         response = await client.post(URL, json=body, timeout=120.0)
     if response.is_error:
         raise status_error("Valhalla", response, response.json().get("error"))

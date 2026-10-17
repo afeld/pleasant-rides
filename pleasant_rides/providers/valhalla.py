@@ -1,9 +1,9 @@
 import json
 from typing import Any
 
-import httpx
 import polyline
 
+from .. import http_client
 from ..models import Point
 from .base import Provider
 
@@ -56,7 +56,7 @@ class Valhalla(Provider):
             "costing_options": {"bicycle": self.costing_options},
             "directions_options": {"units": "miles"},
         }
-        async with httpx.AsyncClient() as client:
+        async with http_client.client() as client:
             response = await client.get(
                 URL,
                 params={"json": json.dumps(params, separators=(",", ":"))},

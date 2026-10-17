@@ -1,13 +1,11 @@
-import httpx
-
+from . import http_client
 from .models import Point
 
 
 def geocode_place(query: str):
-    response = httpx.get(
+    response = http_client.get(
         "https://nominatim.openstreetmap.org/search",
         params={"q": query, "format": "jsonv2", "limit": 1, "countrycodes": "us"},
-        headers={"User-Agent": "pleasant-rides/1.0"},
         timeout=30.0,
     )
     result = response.json()[0]
