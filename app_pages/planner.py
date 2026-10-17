@@ -11,22 +11,34 @@ from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.scoring import METRICS, Scorecard, score
 from pleasant_rides.surroundings import Surroundings
+from pleasant_rides.trips import TRIPS
 
 st.title("Pleasant Ride Planner")
 
-# a form, so that editing a field doesn't trigger a rerun (and a round of API calls) on its own
-with st.form("route"):
-    col1, col2 = st.columns(2)
-    origin = col1.text_input("Origin", "Brooklyn, NY")
-    destination = col2.text_input("Destination", "Beacon, NY")
-    st.form_submit_button("Route")
+CUSTOM_TRIP = "Custom…"
 
-try:
-    origin_point = geocode(origin)
-    destination_point = geocode(destination)
-except IndexError:
-    st.error("Couldn't find one of those places.")
-    st.stop()
+
+def custom_trip():
+    """The origin and destination typed in, geocoded."""
+    # a form, so that editing a field doesn't trigger a rerun (and a round of API calls) on its own
+    with st.form("route"):
+        col1, col2 = st.columns(2)
+        origin = col1.text_input("Origin", "Brooklyn, NY")
+        destination = col2.text_input("Destination", "Beacon, NY")
+        st.form_submit_button("Route")
+    try:
+        return geocode(origin), geocode(destination)
+    except IndexError:
+        st.error("Couldn't find one of those places.")
+        st.stop()
+
+
+trip = st.selectbox(
+    "Trip",
+    [*TRIPS, CUSTOM_TRIP],
+    help="The sample trips from the Benchmark page, or your own",
+)
+origin_point, destination_point = custom_trip() if trip == CUSTOM_TRIP else TRIPS[trip]
 
 status = st.empty()
 warnings = st.container()
