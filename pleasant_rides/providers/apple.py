@@ -2,14 +2,16 @@ import asyncio
 import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
+from ..models import Point
 from .base import Provider
 
 SOURCE = Path(__file__).with_suffix(".swift")
 BINARY = Path(__file__).parent / ".build" / "apple"
 
 
-async def _run(*args, timeout):
+async def _run(*args: str, timeout: float):
     process = await asyncio.create_subprocess_exec(
         *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
@@ -36,7 +38,7 @@ class Apple(Provider):
 
     name = "Apple Maps"
 
-    async def fetch(self, origin, destination):
+    async def fetch(self, origin: Point, destination: Point):
         stdout = await _run(
             str(await _binary()),
             str(origin.lat),
@@ -49,7 +51,7 @@ class Apple(Provider):
         return [(_label(r), r["points"]) for r in routes]
 
 
-def _label(route):
+def _label(route: dict[str, Any]):
     """e.g. 'via NY-9D (Bike paths and main roads; May require walking)'"""
     label = f"via {route['name']}" if route["name"] else "Route"
     advisories = [a.rstrip(".") for a in route["advisories"]]

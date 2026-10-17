@@ -3,6 +3,8 @@ from branca.element import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
+from .models import Route
+
 
 class OpenFreeMapLayer(JSCSSMixin, MacroElement):
     """OpenFreeMap vector base map, rendered through MapLibre GL in Leaflet."""
@@ -32,7 +34,7 @@ class OpenFreeMapLayer(JSCSSMixin, MacroElement):
         ),
     ]
 
-    def __init__(self, style="positron"):
+    def __init__(self, style: str = "positron"):
         super().__init__()
         self._name = "OpenFreeMapLayer"
         self.style_url = f"https://tiles.openfreemap.org/styles/{style}"
@@ -92,7 +94,7 @@ class RouteTooltip(MacroElement):
         {% endmacro %}
     """)
 
-    def __init__(self, delay_ms=400, tolerance=8):
+    def __init__(self, delay_ms: int = 400, tolerance: int = 8):
         super().__init__()
         self._name = "RouteTooltip"
         self.delay_ms = delay_ms
@@ -103,12 +105,12 @@ class RouteTooltip(MacroElement):
 COLORS = ["#E63946", "#1D3557", "#2A9D8F", "#F4A261", "#457B9D", "#8338EC"]
 
 
-def build_map(routes, highlight=None):
+def build_map(routes: list[Route], highlight: Route | None = None):
     """Maps a list of `Route`s, with one toggleable layer per provider, in the order they first appear.
 
     `highlight` is an optional `Route` to draw on top of the others, which are faded, and zoom to.
     """
-    provider_routes = {}
+    provider_routes: dict[str, list[Route]] = {}
     for route in routes:
         provider_routes.setdefault(route.provider, []).append(route)
     all_points = [pt for route in routes for pt in route.points]

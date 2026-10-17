@@ -2,7 +2,9 @@
 import asyncio
 import os
 import re
+from collections.abc import Awaitable, Callable
 
+from ..models import Point, Route
 from .apple import Apple
 from .brouter import BRouter
 from .cyclemate import Cyclemate
@@ -21,7 +23,7 @@ _SECRET_SUFFIXES = ("_KEY", "_TOKEN", "_SECRET", "_PASSWORD")
 _SECRET_PARAM = re.compile(r"([?&](?:api_?)?key=)[^&\s']+", re.IGNORECASE)
 
 
-def redact(text):
+def redact(text: str):
     """Strip API keys and other secrets from `text`, so they don't end up in the app."""
     for name, value in os.environ.items():
         if name.upper().endswith(_SECRET_SUFFIXES) and value:
@@ -29,19 +31,23 @@ def redact(text):
     return _SECRET_PARAM.sub(r"\1<redacted>", text)
 
 
-async def fetch_routes(name, origin, destination):
+async def fetch_routes(name: str, origin: Point, destination: Point):
     """By provider name rather than object, so it can be cached by the app."""
     return await PROVIDERS[name].get_routes(origin, destination)
 
 
-async def iter_routes(origin, destination, fetch=fetch_routes):
+async def iter_routes(
+    origin: Point,
+    destination: Point,
+    fetch: Callable[[str, Point, Point], Awaitable[list[Route]]] = fetch_routes,
+):
     """Runs every provider concurrently, yielding `(name, [Route, ...], error)` as each one finishes.
 
     `error` is a (redacted) message when the provider failed, e.g. from a missing API key, and `routes` is then None.
     `fetch(name, origin, destination)` defaults to calling the provider directly; pass a cached version to reuse results.
     """
 
-    async def run(name):
+    async def run(name: str):
         try:
             return name, await fetch(name, origin, destination), None
         except Exception as e:

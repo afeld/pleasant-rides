@@ -1,5 +1,6 @@
 import httpx
 
+from ..models import Point
 from .base import Provider
 
 URL = "https://api.cyclemate.club/directions/v2/"
@@ -11,7 +12,7 @@ class Cyclemate(Provider):
     name = "Cyclemate"
     api_key_var = "CYCLEMATE_API_KEY"
 
-    async def fetch(self, origin, destination):
+    async def fetch(self, origin: Point, destination: Point):
         api_key = self.api_key
         async with httpx.AsyncClient() as client:
             response = await client.post(

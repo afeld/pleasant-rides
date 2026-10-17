@@ -6,8 +6,9 @@ import streamlit.components.v1 as components
 
 from pleasant_rides.geocode import geocode_place
 from pleasant_rides.map import build_map
+from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, fetch_routes, iter_routes, redact
-from pleasant_rides.scoring import METRICS, Share, score_route
+from pleasant_rides.scoring import METRICS, Metric, Share, score_route
 
 st.set_page_config(page_title="Pleasant Rides", layout="wide")
 st.title("Pleasant Ride Planner")
@@ -50,12 +51,12 @@ selected_rows = st.session_state[table_key].selection.rows if table_key in st.se
 highlight_id = row_ids[selected_rows[0]] if selected_rows else None
 
 
-def all_routes(provider_routes):
+def all_routes(provider_routes: dict[str, list[Route]]):
     """Flattens provider name -> [Route, ...], in a consistent order."""
     return [route for name in PROVIDERS for route in provider_routes.get(name, [])]
 
 
-def draw_map(provider_routes):
+def draw_map(provider_routes: dict[str, list[Route]]):
     routes = all_routes(provider_routes)
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
@@ -91,20 +92,20 @@ async def show_routes():
     status.empty()
 
 
-def column(metric):
+def column(metric: Metric):
     if isinstance(metric, Share):
         return st.column_config.ProgressColumn(metric.label, help=metric.help, format=metric.format)
     return st.column_config.NumberColumn(metric.label, help=metric.help or None, format=metric.format)
 
 
-async def show_scores(provider_routes):
+async def show_scores(provider_routes: dict[str, list[Route]]):
     routes = all_routes(provider_routes)
     results = await asyncio.gather(
         *(cached_score_route(route.points) for route in routes), return_exceptions=True
     )
     scored = []
     for route, result in zip(routes, results):
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             st.warning(redact(f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"))
         else:
             scored.append((route, result))

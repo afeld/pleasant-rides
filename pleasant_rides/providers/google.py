@@ -1,6 +1,9 @@
+from typing import Any
+
 import httpx
 import polyline
 
+from ..models import Point
 from .base import Provider
 
 URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
@@ -15,10 +18,10 @@ class Google(Provider):
     name = "Google Maps"
     api_key_var = "GOOGLE_MAPS_API_KEY"
 
-    async def fetch(self, origin, destination):
+    async def fetch(self, origin: Point, destination: Point):
         api_key = self.api_key
 
-        def waypoint(p):
+        def waypoint(p: Point):
             return {"location": {"latLng": {"latitude": p.lat, "longitude": p.lon}}}
 
         async with httpx.AsyncClient() as client:
@@ -41,7 +44,7 @@ class Google(Provider):
         return [(_label(r), polyline.decode(r["polyline"]["encodedPolyline"])) for r in routes]
 
 
-def _label(route):
+def _label(route: dict[str, Any]):
     """e.g. "Best route via Empire State Trl", from Google's label and its summary of the main road taken."""
     kinds = [ROUTE_LABELS[k] for k in route.get("routeLabels", []) if k in ROUTE_LABELS]
     label = kinds[0] if kinds else "Route"

@@ -1,15 +1,17 @@
 import json
+from typing import Any
 
 import httpx
 import polyline
 
+from ..models import Point
 from .base import Provider
 
 URL = "https://valhalla1.openstreetmap.de/route"
 
 
-def _decode_trip(trip):
-    points = []
+def _decode_trip(trip: dict[str, Any]):
+    points: list[tuple[float, float]] = []
     for leg in trip["legs"]:
         leg_points = polyline.decode(leg["shape"], precision=6)
         if points and leg_points and points[-1] == leg_points[0]:
@@ -21,7 +23,7 @@ def _decode_trip(trip):
 class Valhalla(Provider):
     name = "Valhalla"
 
-    async def fetch(self, origin, destination):
+    async def fetch(self, origin: Point, destination: Point):
         params = {
             "locations": [
                 {"lat": origin.lat, "lon": origin.lon},

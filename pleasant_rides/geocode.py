@@ -3,7 +3,7 @@ import httpx
 from .models import Point
 
 
-def geocode_place(query):
+def geocode_place(query: str):
     response = httpx.get(
         "https://nominatim.openstreetmap.org/search",
         params={"q": query, "format": "jsonv2", "limit": 1, "countrycodes": "us"},

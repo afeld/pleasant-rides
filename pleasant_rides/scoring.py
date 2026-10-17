@@ -5,10 +5,16 @@ the intersections between them. Most metrics are the share of the route's distan
 intersections are counted per km. Not covered yet: scenery, points of interest, and remoteness.
 """
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any
 
 import httpx
+
+from .models import Point
+
+# a road segment from Valhalla's trace_attributes
+Edge = dict[str, Any]
 
 URL = "https://valhalla1.openstreetmap.de/trace_attributes"
 
@@ -48,7 +54,7 @@ STEEP_GRADE = 6  # percent
 TURN_DEGREES = 45  # a smaller change in heading between road segments is just a bend
 
 
-async def get_edges(points):
+async def get_edges(points: Sequence[Point]):
     """Map-matches `points` [(lat, lon), ...] to the road network, returning Valhalla's edges."""
     body = {
         "shape": [{"lat": lat, "lon": lon} for lat, lon in points],
@@ -63,7 +69,7 @@ async def get_edges(points):
     return response.json()["edges"]
 
 
-def _is_low_traffic(edge):
+def _is_low_traffic(edge: Edge):
     return (
         edge.get("use") in CAR_FREE_USES
         or edge.get("cycle_lane") in SEPARATED_CYCLE_LANES
@@ -71,13 +77,13 @@ def _is_low_traffic(edge):
     )
 
 
-def _is_walking(edge):
+def _is_walking(edge: Edge):
     # riding against the edge's allowed direction means it's a one-way the wrong way
     wrong_way = edge.get("traversability") == ("backward" if edge.get("forward", True) else "forward")
     return edge.get("use") in WALKING_USES or edge.get("sac_scale", 0) > 0 or wrong_way
 
 
-def _turns(edges):
+def _turns(edges: list[Edge]):
     """Changes in heading of more than TURN_DEGREES between consecutive road segments."""
     # segments inside an intersection (e.g. between a divided road's two sides) and roundabouts aren't turns of their
     # own, and would double count the turn they're part of
@@ -91,7 +97,7 @@ def _turns(edges):
     return turns
 
 
-def _intersections(edges):
+def _intersections(edges: list[Edge]):
     """Nodes along the route where it crosses or meets a road that cars can use, other than service roads/driveways."""
     return sum(
         any(
@@ -102,23 +108,23 @@ def _intersections(edges):
     )
 
 
-def _climb(edges):
+def _climb(edges: list[Edge]):
     """Total elevation gain in meters, from the change in mean elevation between consecutive edges."""
     elevations = [e["mean_elevation"] for e in edges if e.get("mean_elevation") is not None]
     return sum(max(b - a, 0) for a, b in zip(elevations, elevations[1:]))
 
 
-def _roads(edges):
+def _roads(edges: list[Edge]):
     """Only roads have speed limits and lanes."""
     return [e for e in edges if e.get("use") not in CAR_FREE_USES]
 
 
-def _posted(edges):
+def _posted(edges: list[Edge]):
     """Roads with a known speed limit; unknown limits are left out rather than guessed."""
     return [e for e in _roads(edges) if e.get("speed_limit")]
 
 
-def _km(edges):
+def _km(edges: list[Edge]):
     return sum(e["length"] for e in edges)
 
 
@@ -129,55 +135,57 @@ class Metric:
     help: str = ""
     # how much it counts toward the overall score; 0 for metrics that are only shown
     weight: float = 0
+    # how the app displays it: "percent", or a printf-style format
+    format: str = "%.0f"
 
-    def measure(self, edges):
+    def measure(self, edges: list[Edge]):
         """The value shown for a map-matched route, or None if it doesn't apply."""
         raise NotImplementedError
 
-    def score(self, value):
+    def score(self, value: float):
         """`value` as 0-1, higher being better."""
         return value
 
 
-@dataclass(frozen=True)
+# keyword-only, so these fields can be required even though Metric's later ones have defaults
+@dataclass(frozen=True, kw_only=True)
 class Total(Metric):
     """A number for the whole route, such as its distance."""
 
-    compute: Callable = None
-    format: str = "%.0f"
+    compute: Callable[[list[Edge]], float]
 
-    def measure(self, edges):
+    def measure(self, edges: list[Edge]):
         return self.compute(edges)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Share(Metric):
     """The share (0-1) of the route's distance that meets `condition`, out of the edges that `of` selects."""
 
-    condition: Callable = None
-    of: Callable = lambda edges: edges
+    condition: Callable[[Edge], bool]
+    of: Callable[[list[Edge]], list[Edge]] = lambda edges: edges
     format: str = field(default="percent", init=False)
 
-    def measure(self, edges):
+    def measure(self, edges: list[Edge]):
         edges = self.of(edges)
         total = _km(edges)
         return _km([e for e in edges if self.condition(e)]) / total if total else None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PerKm(Metric):
     """How many times something happens per km, where fewer is better."""
 
-    count: Callable = None
+    count: Callable[[list[Edge]], int]
     # the rate that scores 0.5
     half_score: float = 1
     format: str = "%.1f"
 
-    def measure(self, edges):
+    def measure(self, edges: list[Edge]):
         km = _km(edges)
         return self.count(edges) / km if km else None
 
-    def score(self, value):
+    def score(self, value: float):
         return self.half_score / (self.half_score + value)
 
 
@@ -252,12 +260,12 @@ class Scorecard:
     total: float
 
 
-def score(edges):
+def score(edges: list[Edge]):
     values = {m.key: m.measure(edges) for m in METRICS}
     weighted = [(m.score(values[m.key]), m.weight) for m in METRICS if m.weight and values[m.key] is not None]
     total = 100 * sum(s * w for s, w in weighted) / sum(w for _, w in weighted)
     return Scorecard(values, total)
 
 
-async def score_route(points):
+async def score_route(points: Sequence[Point]):
     return score(await get_edges(points))

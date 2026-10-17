@@ -1,5 +1,6 @@
 import httpx
 
+from ..models import Point
 from .base import Provider
 
 URL = "https://brouter.de/brouter"
@@ -8,10 +9,10 @@ URL = "https://brouter.de/brouter"
 class BRouter(Provider):
     name = "BRouter"
 
-    def __init__(self, profile="trekking"):
+    def __init__(self, profile: str = "trekking"):
         self.profile = profile
 
-    async def fetch(self, origin, destination):
+    async def fetch(self, origin: Point, destination: Point):
         # https://github.com/abrensch/brouter/blob/master/brouter-server/src/main/resources/readme.md
         async with httpx.AsyncClient() as client:
             response = await client.get(

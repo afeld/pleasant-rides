@@ -1,5 +1,6 @@
 import httpx
 
+from ..models import Point
 from .base import Provider
 
 URL = "https://graphhopper.com/api/1/route"
@@ -31,11 +32,11 @@ class GraphHopper(Provider):
     name = "GraphHopper"
     api_key_var = "GRAPHHOPPER_API_KEY"
 
-    def __init__(self, profile="bike", custom_model=False):
+    def __init__(self, profile: str = "bike", custom_model: bool = False):
         self.profile = profile
         self.custom_model = custom_model
 
-    async def fetch(self, origin, destination):
+    async def fetch(self, origin: Point, destination: Point):
         api_key = self.api_key
         body = {
             "points": [
