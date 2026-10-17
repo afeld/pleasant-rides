@@ -43,7 +43,7 @@ def test_share_only_counts_the_edges_it_applies_to():
     # the bike path has no speed limit, so only the road counts
     values = measure([BIKE_PATH, BUSY_ROAD])
     assert values["slow"] == 0
-    assert values["few_lanes"] == 0
+    assert values["lanes"] == 4
 
 
 def test_share_without_applicable_edges_is_none():
@@ -94,3 +94,26 @@ def test_busier_routes_score_lower():
 def test_metric_keys_are_unique():
     keys = [m.key for m in METRICS]
     assert len(keys) == len(set(keys))
+
+
+def test_fewer_lanes_score_better():
+    lanes = next(m for m in METRICS if m.key == "lanes")
+    one, two, four = (
+        {"length": 1.0, "use": "road", "road_class": "residential", "lane_count": n}
+        for n in (1, 2, 4)
+    )
+    # distance-weighted, of roads only
+    assert measure([BIKE_PATH, one, four])["lanes"] == 2.5
+    assert measure([BIKE_PATH])["lanes"] is None
+    assert lanes.score(1) == 1
+    assert lanes.score(2) > lanes.score(3) > lanes.score(4) > 0
+    assert lanes.score(3) == 0.5
+
+
+def test_quiet_is_the_share_away_from_busy_roads():
+    class NearBusyRoadsHalfTheTime(FakeSurroundings):
+        def share_near(self, points, layer, distance):
+            return 0.5 if layer == "busy_roads" else 1.0
+
+    assert measure([BIKE_PATH], NearBusyRoadsHalfTheTime())["quiet"] == 0.5
+    assert measure([BIKE_PATH])["quiet"] is None

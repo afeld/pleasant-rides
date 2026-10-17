@@ -11,9 +11,11 @@ A "pleasant" bike ride is:
     - Nature
     - Good views
   - Points of interest
+  - Quiet
 - **Easy**
   - Avoids steep climbs/descents
-  - Avoids taking a ton of turns
+  - Simple navigation
+    - Not many turns
   - Smooth-ish surface, such as:
     - Pavement
     - Boardwalks (where cycling is permitted)
@@ -27,7 +29,7 @@ A "pleasant" bike ride is:
     - Intersections
   - If there _are_ motor vehicles:
     - A low speed limit
-    - Only 1-2 lanes
+    - The fewer lanes, the better
   - Not _too_ remote
     - Theoretically walkable to somewhere you can get help if you need.
 

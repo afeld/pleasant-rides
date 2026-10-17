@@ -22,17 +22,20 @@ def test_layers():
         subtype=["river", "river", "stream"], **{"class": ["river", "ditch", "stream"]}
     )
 
-    layers = _layers(places, land_cover, land_use, water)
+    busy_roads = table(**{"class": ["motorway", "primary"]})
+
+    layers = _layers(places, land_cover, land_use, water, busy_roads)
 
     assert len(layers["green"]) == 2
     assert len(layers["water"]) == 1
     # open, confident places
     assert len(layers["sights"]) == 1
     assert len(layers["help"]) == 2
+    assert len(layers["busy_roads"]) == 2
 
 
 def test_layers_without_data():
-    layers = _layers(None, None, None, None)
+    layers = _layers(None, None, None, None, None)
     assert all(len(geoms) == 0 for geoms in layers.values())
 
 
@@ -43,3 +46,25 @@ def test_bbox_covers_help_distance():
     # ~1 km is ~0.009° of latitude
     assert north - 40.0 > HELP_M / 111_000 * 0.99
     assert west < -74.0 < east and south < 40.0 < north
+
+
+def test_read_keeps_only_matching_features(monkeypatch):
+    from pleasant_rides import surroundings
+    from pleasant_rides.surroundings import _read
+
+    roads = table(
+        **{"class": ["motorway", "residential", "primary"]}, id=["a", "b", "c"]
+    )
+    monkeypatch.setattr(
+        surroundings.core,
+        "record_batch_reader",
+        lambda *args, **kwargs: pa.RecordBatchReader.from_batches(
+            roads.schema, roads.to_batches(max_chunksize=2)
+        ),
+    )
+    read = _read(
+        "segment", (0, 0, 1, 1), ["geometry", "class"], surroundings._busy_road()
+    )
+    assert read is not None
+    assert read.column_names == ["geometry", "class"]
+    assert read["class"].to_pylist() == ["motorway", "primary"]

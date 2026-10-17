@@ -57,6 +57,8 @@ SIGHTS = [
     "zoo",
     "aquarium",
 ]
+# Overture's road classes with heavy, loud traffic; secondary roads are left out, since nearly every city route is close to one
+BUSY_ROAD_CLASSES = ["motorway", "trunk", "primary"]
 # places below this are often duplicates or no longer there
 MIN_CONFIDENCE = 0.6
 
@@ -65,6 +67,7 @@ GREEN_M = 30  # alongside
 WATER_M = 100  # in view
 SIGHT_M = 50
 HELP_M = 1000  # a ~15 minute walk
+QUIET_M = 50  # within earshot of heavy traffic
 
 SAMPLE_M = 20  # spacing of the points along a route that are checked
 
@@ -75,14 +78,25 @@ def _project(geoms: np.ndarray, transformer: Transformer):
     )
 
 
-def _read(overture_type: str, bbox: tuple[float, ...], columns: list[str]):
+def _read(
+    overture_type: str,
+    bbox: tuple[float, ...],
+    columns: list[str],
+    keep: pc.Expression | None = None,
+):
+    """The features in `bbox`, with only `columns`, since places have a lot of them. `keep` filters the features as they're read, so the ones that aren't needed (like all the minor roads) don't pile up in memory."""
     reader = core.record_batch_reader(overture_type, bbox, stac=True)
     if reader is None:
         return None
-    # only keep the needed columns of each batch, since places have a lot of them
+    batches = (batch.select(columns) for batch in reader)
+    if keep is not None:
+        batches = (
+            kept
+            for batch in batches
+            for kept in pa.Table.from_batches([batch]).filter(keep).to_batches()
+        )
     return pa.Table.from_batches(
-        (batch.select(columns) for batch in reader),
-        schema=pa.schema([reader.schema.field(c) for c in columns]),
+        batches, schema=pa.schema([reader.schema.field(c) for c in columns])
     )
 
 
@@ -158,7 +172,7 @@ def _bbox(lats: list[float], lons: list[float], crs: CRS, to_local: Transformer)
 
 
 async def _read_all(bbox: tuple[float, ...]):
-    """The places, land cover, land use, and water in `bbox`, read in parallel."""
+    """The places, land cover, land use, water, and busy roads in `bbox`, read in parallel."""
     return await asyncio.gather(
         asyncio.to_thread(
             _read,
@@ -169,7 +183,12 @@ async def _read_all(bbox: tuple[float, ...]):
         asyncio.to_thread(_read, "land_cover", bbox, ["geometry", "subtype"]),
         asyncio.to_thread(_read, "land_use", bbox, ["geometry", "subtype"]),
         asyncio.to_thread(_read, "water", bbox, ["geometry", "subtype", "class"]),
+        asyncio.to_thread(_read, "segment", bbox, ["geometry", "class"], _busy_road()),
     )
+
+
+def _busy_road():
+    return pc.field("class").isin(BUSY_ROAD_CLASSES)
 
 
 def _layers(
@@ -177,6 +196,7 @@ def _layers(
     land_cover: pa.Table | None,
     land_use: pa.Table | None,
     water: pa.Table | None,
+    busy_roads: pa.Table | None,
 ):
     """Layer name -> the geometries of its features, in (lon, lat)."""
     open_place = (pc.field("confidence") >= MIN_CONFIDENCE) & (
@@ -199,4 +219,5 @@ def _layers(
             places, open_place & pc.field("basic_category").isin(SIGHTS)
         ),
         "help": _geometries(places, open_place),
+        "busy_roads": _geometries(busy_roads, _busy_road()),
     }

@@ -20,7 +20,7 @@ from .edges import (
     total_km,
     turns,
 )
-from .metrics import Near, PassesPerKm, PerKm, Ride, Share, Total
+from .metrics import Average, Away, Near, PassesPerKm, PerKm, Ride, Share, Total
 
 # in the order they're shown, grouped as in the README
 METRICS = [
@@ -50,6 +50,14 @@ METRICS = [
         layer="sights",
         distance=surroundings.SIGHT_M,
         half_score=0.5,
+    ),
+    Away(
+        "quiet",
+        "Quiet",
+        f"Not within {surroundings.QUIET_M} m of a motorway, trunk, or primary road",
+        weight=1,
+        layer="busy_roads",
+        distance=surroundings.QUIET_M,
     ),
     # easy
     Share(
@@ -106,13 +114,15 @@ METRICS = [
         condition=lambda e: e["speed_limit"] < FAST_KPH,
         of=posted,
     ),
-    Share(
-        "few_lanes",
-        "1-2 lanes",
-        "Of roads",
+    Average(
+        "lanes",
+        "Lanes",
+        "Average lanes of the roads, where fewer is better",
         weight=1,
-        condition=lambda e: e.get("lane_count", 1) <= 2,
+        value=lambda e: e.get("lane_count", 1),
         of=roads,
+        best=1,
+        half_score=3,
     ),
     Near(
         "near_help",

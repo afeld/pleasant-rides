@@ -114,3 +114,34 @@ class PassesPerKm(Metric):
 
     def score(self, value: float):
         return value / (self.half_score + value)
+
+
+@dataclass(frozen=True, kw_only=True)
+class Away(Near):
+    """The share (0-1) of the route's distance that's *not* within `distance` meters of a feature in a `layer` of its surroundings."""
+
+    def measure(self, ride: Ride):
+        near = super().measure(ride)
+        return None if near is None else 1 - near
+
+
+@dataclass(frozen=True, kw_only=True)
+class Average(Metric):
+    """The distance-weighted average of `value` over the edges that `of` selects, where lower is better."""
+
+    value: Callable[[Edge], float]
+    of: Callable[[list[Edge]], list[Edge]] = lambda edges: edges
+    # the best possible value, which scores 1
+    best: float
+    # the value that scores 0.5
+    half_score: float
+    format: str = "%.1f"
+
+    def measure(self, ride: Ride):
+        edges = self.of(ride.edges)
+        km = total_km(edges)
+        return sum(self.value(e) * e["length"] for e in edges) / km if km else None
+
+    def score(self, value: float):
+        half = self.half_score - self.best
+        return half / (half + max(value - self.best, 0))
