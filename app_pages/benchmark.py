@@ -1,10 +1,17 @@
 import asyncio
-import statistics
+import time
 
 import streamlit as st
 
-from pleasant_rides.benchmark import TRIPS, VARIANTS, TripResult, run_variants, steps
-from pleasant_rides.cached import fetch_routes, get_edges, get_surroundings
+from pleasant_rides.benchmark import (
+    TRIPS,
+    VARIANTS,
+    run_variants,
+    short,
+    steps,
+    table_row,
+)
+from pleasant_rides.cached import fetch_routes_timed, get_edges, get_surroundings
 from pleasant_rides.providers import redact
 
 st.title("Benchmark")
@@ -33,34 +40,18 @@ def on_step(message: str):
     progress.progress(done / steps(names), text=message)
 
 
+started = time.perf_counter()
 results = asyncio.run(
-    run_variants(names, fetch_routes, get_edges, get_surroundings, on_step)
+    run_variants(names, fetch_routes_timed, get_edges, get_surroundings, on_step)
 )
 progress.empty()
+st.caption(
+    f"Ran in {time.perf_counter() - started:.0f} s, reusing cached routes and scoring data where possible. The routing "
+    "times are from when the routes were fetched."
+)
 
 
-def short(trip: str):
-    """e.g. "Long" from "Long: Brooklyn→Beacon"."""
-    return trip.split(":")[0]
-
-
-def row(name: str, trips: dict[str, TripResult]):
-    scores = [r[0] for r in trips.values() if not isinstance(r, str)]
-    cells = {}
-    for trip, result in trips.items():
-        score, km = (None, None) if isinstance(result, str) else result
-        cells[f"{short(trip)} score"] = score
-        cells[f"{short(trip)} km"] = km
-    return {
-        "Variant": name,
-        "Provider": VARIANTS[name].name,
-        # only comparable when every trip worked
-        "Mean": statistics.mean(scores) if len(scores) == len(TRIPS) else None,
-        **cells,
-    }
-
-
-rows = [row(name, results.trips[name]) for name in names]
+rows = [table_row(name, results.trips[name]) for name in names]
 rows.sort(key=lambda r: (r["Mean"] is not None, r["Mean"] or 0), reverse=True)
 # Streamlit's default row height, plus the header, so that every variant shows without scrolling
 ROW_HEIGHT_PX = 35
@@ -79,9 +70,20 @@ st.dataframe(
             )
             for t in TRIPS
         },
+        "Routing s": st.column_config.NumberColumn(
+            "Routing s",
+            help="Seconds the provider took to return routes, in total across the trips",
+            format="%.1f",
+        ),
         **{
             f"{short(t)} km": st.column_config.NumberColumn(
                 f"{short(t)} km", help=t, format="%.0f"
+            )
+            for t in TRIPS
+        },
+        **{
+            f"{short(t)} s": st.column_config.NumberColumn(
+                f"{short(t)} s", help=f"{t}: seconds to route", format="%.1f"
             )
             for t in TRIPS
         },

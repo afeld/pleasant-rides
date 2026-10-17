@@ -6,14 +6,15 @@ the baselines (the "(current)" ones) from the same run.
 """
 
 import asyncio
+import statistics
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TypeVar
 
 from . import scoring, surroundings
 from .models import Point, Route
-from .providers import PROVIDERS, fetch_routes
+from .providers import PROVIDERS, fetch_routes_timed
 from .providers.base import MissingAPIKey, Provider
 from .providers.brouter import BRouter
 from .providers.graphhopper import GraphHopper
@@ -93,11 +94,22 @@ RETRY_AFTER_S = 5
 # map matching goes through Valhalla's public server, so go easy on it
 MAP_MATCHING_CONCURRENCY = 2
 
-Fetch = Callable[[Provider, Point, Point], Awaitable[list[Route]]]
+# returns the routes and how many seconds the provider took
+Fetch = Callable[[Provider, Point, Point], Awaitable[tuple[list[Route], float]]]
 GetEdges = Callable[[Sequence[Point]], Awaitable[list[Edge]]]
 GetSurroundings = Callable[[tuple[Sequence[Point], ...]], Awaitable[Surroundings]]
-# (score, km) for a trip, or an error message
-TripResult = tuple[float, float] | str
+
+
+@dataclass(frozen=True)
+class TripScore:
+    score: float
+    km: float
+    # how long the provider took to return the routes when they were fetched, even if they now come from a cache
+    seconds: float
+
+
+# a TripScore, or an error message
+TripResult = TripScore | str
 
 T = TypeVar("T")
 
@@ -134,7 +146,7 @@ def steps(names: list[str]):
 
 async def run_variants(
     names: list[str],
-    fetch: Fetch = fetch_routes,
+    fetch: Fetch = fetch_routes_timed,
     get_edges: GetEdges = scoring.get_edges,
     get_surroundings: GetSurroundings = surroundings.get_surroundings,
     on_step: Callable[[str], None] = lambda message: None,
@@ -149,11 +161,12 @@ async def run_variants(
     by_provider: dict[str, list[str]] = defaultdict(list)
     for name in names:
         by_provider[VARIANTS[name].name].append(name)
-    # variant name -> trip -> the first route's points, or an error message
-    points: dict[str, dict[str, Sequence[Point] | str]] = {}
+    # variant name -> trip -> (the first route's points, seconds), or an error message
+    points: dict[str, dict[str, tuple[Sequence[Point], float] | str]] = {}
 
     async def fetch_first(provider: Provider, origin: Point, destination: Point):
-        return (await fetch(provider, origin, destination))[0].points
+        routes, seconds = await fetch(provider, origin, destination)
+        return routes[0].points, seconds
 
     async def fetch_provider(variant_names: list[str]):
         for name in variant_names:
@@ -174,9 +187,9 @@ async def run_variants(
 
     for trip in TRIPS:
         routes = {
-            name: route
+            name: fetched[0]
             for name in names
-            if not isinstance(route := points[name][trip], str)
+            if not isinstance(fetched := points[name][trip], str)
         }
         found = await _attempt(lambda: get_surroundings(tuple(routes.values())))
         if isinstance(found, str):
@@ -186,14 +199,44 @@ async def run_variants(
             zip(routes, await asyncio.gather(*map(edges_for, routes.values())))
         )
         for name in names:
-            route, route_edges = points[name][trip], edges.get(name, "")
-            if isinstance(route, str):
-                results.trips[name][trip] = route
+            fetched, route_edges = points[name][trip], edges.get(name, "")
+            if isinstance(fetched, str):
+                results.trips[name][trip] = fetched
             elif isinstance(route_edges, str):
                 results.trips[name][trip] = route_edges
             else:
+                route, seconds = fetched
                 card = scoring.score(Ride(route, route_edges, around))
-                results.trips[name][trip] = card.total, card.values["distance_km"]
+                results.trips[name][trip] = TripScore(
+                    card.total, card.values["distance_km"], seconds
+                )
         on_step(f"Scored: {trip}")
 
     return results
+
+
+def short(trip: str):
+    """e.g. "Long" from "Long: Brooklyn→Beacon"."""
+    return trip.split(":")[0]
+
+
+def table_row(name: str, trips: Mapping[str, TripResult]):
+    """A variant's row in the results table.
+
+    The mean score and total routing time are only filled in when every trip worked, since they're only comparable then.
+    """
+    scored = [r for r in trips.values() if isinstance(r, TripScore)]
+    complete = len(scored) == len(TRIPS)
+    cells = {}
+    for trip, result in trips.items():
+        ok = isinstance(result, TripScore)
+        cells[f"{short(trip)} score"] = result.score if ok else None
+        cells[f"{short(trip)} km"] = result.km if ok else None
+        cells[f"{short(trip)} s"] = result.seconds if ok else None
+    return {
+        "Variant": name,
+        "Provider": VARIANTS[name].name,
+        "Mean": statistics.mean(r.score for r in scored) if complete else None,
+        "Routing s": sum(r.seconds for r in scored) if complete else None,
+        **cells,
+    }

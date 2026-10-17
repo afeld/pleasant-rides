@@ -3,6 +3,7 @@
 import asyncio
 import os
 import re
+import time
 from collections.abc import Awaitable, Callable
 
 from ..models import Point, Route
@@ -42,6 +43,13 @@ def redact(text: str):
 
 async def fetch_routes(provider: Provider, origin: Point, destination: Point):
     return await provider.get_routes(origin, destination)
+
+
+async def fetch_routes_timed(provider: Provider, origin: Point, destination: Point):
+    """Returns the routes and how many seconds the provider took to return them."""
+    started = time.perf_counter()
+    routes = await provider.get_routes(origin, destination)
+    return routes, time.perf_counter() - started
 
 
 async def iter_routes(

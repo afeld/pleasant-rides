@@ -16,16 +16,22 @@ geocode = st.cache_data(show_spinner="Geocoding…", persist="disk")(geocode_pla
 
 
 # `_provider` is left out of the cache key (Streamlit skips parameters starting with an underscore); `key` stands in
-# for it, so that each provider and settings are cached separately
+# for it, so that each provider and settings are cached separately. Cached with how long they took, for the Benchmark
+# page.
 @st.cache_data(show_spinner=False, persist="disk")
-async def _fetch_routes(
+async def _fetch_routes_timed(
     key: str, _provider: Provider, origin: Point, destination: Point
 ):
-    return await providers.fetch_routes(_provider, origin, destination)
+    return await providers.fetch_routes_timed(_provider, origin, destination)
+
+
+async def fetch_routes_timed(provider: Provider, origin: Point, destination: Point):
+    return await _fetch_routes_timed(provider.cache_key, provider, origin, destination)
 
 
 async def fetch_routes(provider: Provider, origin: Point, destination: Point):
-    return await _fetch_routes(provider.cache_key, provider, origin, destination)
+    routes, _ = await fetch_routes_timed(provider, origin, destination)
+    return routes
 
 
 get_edges = st.cache_data(show_spinner=False, persist="disk")(scoring.get_edges)
