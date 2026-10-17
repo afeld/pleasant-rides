@@ -11,7 +11,7 @@ from typing import TypeVar
 
 import streamlit as st
 
-from . import map_matching, providers, surroundings
+from . import map_matching, overture, providers, surroundings
 from .geocode import geocode_place
 from .models import Point
 from .politeness import ProviderError, is_permanent
@@ -52,21 +52,40 @@ async def get_edges(points: Sequence[Point]):
     return await _unless_failed(("edges", tuple(points)), lambda: _get_edges(points))
 
 
-# Streamlit only notices changes to a cached function's own code, not to what it calls, so the code of the whole module is part of the key, so that e.g. adding a layer refetches the surroundings
-_SURROUNDINGS_CODE = hashlib.sha256(
-    inspect.getsource(surroundings).encode()
-).hexdigest()
+# Streamlit only notices changes to a cached function's own code, not to what it calls, so the code of the module that reads from Overture is part of the key, so that e.g. reading another column refetches the tiles. Changes to `surroundings` (which features count, and how routes are measured against them) don't need a refetch.
+_OVERTURE_CODE = hashlib.sha256(inspect.getsource(overture).encode()).hexdigest()
+
+
+# not on disk, so that a new release is picked up after restarting the app
+@st.cache_data(show_spinner=False, ttl="1d")
+def _latest_release():
+    return overture.latest_release()
 
 
 @st.cache_data(show_spinner=False, persist="disk")
-async def _get_tile(code: str, x: int, y: int, zoom: int):
-    return await surroundings.get_tile(x, y, zoom)
+async def _get_tile(code: str, release: str, x: int, y: int, zoom: int):
+    return await overture.get_tile(release, x, y, zoom)
+
+
+@st.cache_resource
+def _loaded_tiles() -> dict[tuple, surroundings.Tables]:
+    """Tiles already loaded from the disk cache, kept in memory as they are, since `st.cache_data` unpickles a fresh copy on every hit, which adds up to around a second per rerun for a city's worth. They're only read, never changed, so sharing them is safe."""
+    return {}
+
+
+async def _tile(release: str, x: int, y: int, zoom: int):
+    key = (_OVERTURE_CODE, release, x, y, zoom)
+    loaded = _loaded_tiles()
+    if key not in loaded:
+        loaded[key] = await _get_tile(*key)
+    return loaded[key]
 
 
 async def get_surroundings(routes: Sequence[Sequence[Point]]):
-    """Cached per map tile rather than per set of routes, so that routes overlapping ones seen before only fetch the tiles that are new."""
+    """Cached per map tile of Overture's latest release rather than per set of routes, so that routes overlapping ones seen before only fetch the tiles that are new."""
+    release = _latest_release()
     return await surroundings.get_surroundings(
-        routes, lambda x, y, zoom: _get_tile(_SURROUNDINGS_CODE, x, y, zoom)
+        routes, lambda x, y, zoom: _tile(release, x, y, zoom)
     )
 
 

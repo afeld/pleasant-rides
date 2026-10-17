@@ -4,7 +4,6 @@ import itertools
 import mercantile
 import numpy as np
 import pyarrow as pa
-import pyarrow.dataset as ds
 import shapely
 from pyproj import CRS, Transformer
 
@@ -12,7 +11,6 @@ from pleasant_rides.models import Point
 from pleasant_rides.surroundings import (
     HELP_M,
     TILE_ZOOM,
-    Features,
     _bbox,
     _layers,
     _tiles,
@@ -49,7 +47,15 @@ def test_layers():
 
     busy_roads = table(**{"class": ["motorway", "primary"]})
 
-    layers = _layers(places, land_cover, land_use, water, busy_roads)
+    layers = _layers(
+        {
+            "place": places,
+            "land_cover": land_cover,
+            "land_use": land_use,
+            "water": water,
+            "segment": busy_roads,
+        }
+    )
 
     assert len(layers["green"]) == 2
     assert len(layers["water"]) == 1
@@ -60,7 +66,9 @@ def test_layers():
 
 
 def test_layers_without_data():
-    layers = _layers(None, None, None, None, None)
+    layers = _layers(
+        dict.fromkeys(["place", "land_cover", "land_use", "water", "segment"])
+    )
     assert all(len(geoms) == 0 for geoms in layers.values())
 
 
@@ -71,36 +79,6 @@ def test_bbox_covers_help_distance():
     # ~1 km is ~0.009° of latitude
     assert north - 40.0 > HELP_M / 111_000 * 0.99
     assert west < -74.0 < east and south < 40.0 < north
-
-
-def test_read_keeps_only_matching_features_in_the_bbox(monkeypatch):
-    from pleasant_rides import surroundings
-    from pleasant_rides.surroundings import _read
-
-    roads = table(**{"class": ["motorway", "residential", "primary", "primary"]})
-    # the last road is outside the bbox
-    corners = [0.1, 0.2, 0.3, 5]
-    roads = roads.append_column(
-        "bbox",
-        pa.StructArray.from_arrays(
-            [pa.array(corners)] * 4, names=["xmin", "xmax", "ymin", "ymax"]
-        ),
-    )
-    monkeypatch.setattr(surroundings, "_files", lambda *args: ["roads"])
-    monkeypatch.setattr(surroundings, "_dataset", lambda files: ds.dataset(roads))
-    read = _read(
-        "segment", (0, 0, 1, 1), ["geometry", "class"], surroundings._busy_road()
-    )
-    assert read is not None
-    assert read.column_names == ["geometry", "class"]
-    assert read["class"].to_pylist() == ["motorway", "primary"]
-
-
-def test_read_without_files(monkeypatch):
-    from pleasant_rides import surroundings
-
-    monkeypatch.setattr(surroundings, "_files", lambda *args: [])
-    assert surroundings._read("segment", (0, 0, 1, 1), ["geometry"]) is None
 
 
 def local(lats, lons):
@@ -126,22 +104,25 @@ def test_tiles_follow_the_route_rather_than_its_bounding_box():
 
 def test_features_in_several_tiles_are_only_counted_once():
     park = shapely.box(-74.0, 40.0, -73.99, 40.01)
-    cafe = shapely.Point(-74.0, 40.0)
-
-    def features(*pairs):
-        return Features(
-            np.array([id for id, _ in pairs], dtype=object),
-            np.array([geom for _, geom in pairs], dtype=object),
-        )
 
     async def get_tile(x, y, zoom):
+        # the same park, in every tile
         return {
-            "green": features(("park", park)),
-            "help": features(("cafe", cafe), ("park", park)),
+            "place": None,
+            "land_cover": None,
+            "land_use": pa.table(
+                {
+                    "id": ["park"],
+                    "geometry": [shapely.to_wkb(park)],
+                    "subtype": ["park"],
+                }
+            ),
+            "water": None,
+            "segment": None,
         }
 
-    around = asyncio.run(
-        get_surroundings([[Point(40.0, -74.0), Point(40.2, -74.0)]], get_tile)
-    )
+    route = [Point(40.0, -74.0), Point(40.2, -74.0)]
+    lats, lons = [lat for lat, _ in route], [lon for _, lon in route]
+    assert len(_tiles([route], lats, lons, *local(lats, lons))) > 1
+    around = asyncio.run(get_surroundings([route], get_tile))
     assert len(around.layers["green"]) == 1
-    assert len(around.layers["help"]) == 2
