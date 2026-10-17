@@ -55,6 +55,14 @@ class BRouter(Provider):
     def profile_name(self):
         return self.profile.stem if isinstance(self.profile, Path) else self.profile
 
+    def _overrides(self):
+        """`params` as the server expects them."""
+        # the server rejects "true"/"false"
+        return {
+            f"profile:{k}": int(v) if isinstance(v, bool) else v
+            for k, v in self.params.items()
+        }
+
     async def fetch(self, origin: Point, destination: Point):
         # https://github.com/abrensch/brouter/blob/master/docs/developers/http_server.md
         async with http_client.client() as client:
@@ -65,25 +73,25 @@ class BRouter(Provider):
                     "profile": await self._profile_id(client),
                     "alternativeidx": 0,
                     "format": "geojson",
-                    # the server rejects "true"/"false"
-                    **{
-                        f"profile:{k}": int(v) if isinstance(v, bool) else v
-                        for k, v in self.params.items()
-                    },
+                    **self._overrides(),
                 },
                 timeout=120.0,
             )
         if response.is_error:
-            # the body says what went wrong: e.g. that the public server gave up on a long route while busy
-            # ("operation killed by thread-priority-watchdog"), which tends to work on a retry, or to slow down
-            # (403 "Please, retry later!")
-            text = response.text.strip()
-            raise ProviderError(
-                f"BRouter {response.status_code}: {text}",
-                retryable=response.status_code >= 500 or "watchdog" in text,
-                rate_limited=response.status_code in (403, 429),
-            )
+            raise _error(response)
         feature = response.json()["features"][0]
         # GeoJSON coordinates are [lon, lat(, elevation)]
         points = [(c[1], c[0]) for c in feature["geometry"]["coordinates"]]
         return [(f"BRouter ({self.profile_name})", points)]
+
+
+def _error(response: httpx.Response):
+    # the body says what went wrong: e.g. that the public server gave up on a long route while busy
+    # ("operation killed by thread-priority-watchdog"), which tends to work on a retry, or to slow down
+    # (403 "Please, retry later!")
+    text = response.text.strip()
+    return ProviderError(
+        f"BRouter {response.status_code}: {text}",
+        retryable=response.status_code >= 500 or "watchdog" in text,
+        rate_limited=response.status_code in (403, 429),
+    )
