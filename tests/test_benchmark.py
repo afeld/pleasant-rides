@@ -45,7 +45,13 @@ async def no_surroundings(routes):
 def run(names, fetch=fetch, get_edges=get_edges, get_surroundings=no_surroundings):
     messages = []
     results = asyncio.run(
-        run_variants(names, fetch, get_edges, get_surroundings, messages.append)
+        run_variants(
+            names,
+            fetch,
+            get_edges,
+            get_surroundings,
+            lambda message, results: messages.append(message),
+        )
     )
     return results, messages
 
@@ -212,3 +218,36 @@ def test_variants_have_unique_cache_keys():
 def test_trip_endpoints_are_points():
     for origin, destination in TRIPS.values():
         assert isinstance(origin, Point) and isinstance(destination, Point)
+
+
+def test_reports_each_trip_as_its_scored():
+    scored = []
+
+    def on_step(message, results):
+        if message.startswith("Scored"):
+            scored.append({trip for trip, r in results.trips[VALHALLA].items()})
+
+    asyncio.run(
+        run_variants([VALHALLA, BROUTER], fetch, get_edges, no_surroundings, on_step)
+    )
+    trips = list(TRIPS)
+    assert scored == [set(trips[: i + 1]) for i in range(len(trips))]
+
+
+def test_scores_trips_while_later_ones_are_still_being_fetched():
+    events = []
+
+    async def logged_fetch(provider, origin, destination):
+        events.append(("fetch", origin))
+        # like a real request, let other tasks run meanwhile
+        await asyncio.sleep(0)
+        return await fetch(provider, origin, destination)
+
+    async def logged_edges(points):
+        events.append(("score", points[0]))
+        return await get_edges(points)
+
+    run([VALHALLA], fetch=logged_fetch, get_edges=logged_edges)
+    first_origin = next(iter(TRIPS.values()))[0]
+    last_origin = list(TRIPS.values())[-1][0]
+    assert events.index(("score", first_origin)) < events.index(("fetch", last_origin))

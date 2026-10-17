@@ -15,3 +15,8 @@ TRIPS = {
         Point(40.8259, -74.2090),
     ),
 }
+
+
+def short(trip: str):
+    """e.g. "Long" from "Long: Brooklyn→Beacon"."""
+    return trip.split(":")[0]

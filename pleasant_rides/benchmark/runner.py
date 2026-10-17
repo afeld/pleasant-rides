@@ -12,7 +12,7 @@ from ..models import Point, Route
 from ..providers import fetch_routes_timed, valhalla
 from ..providers.base import Provider
 from ..surroundings import Surroundings
-from ..trips import TRIPS
+from ..trips import TRIPS, short
 from .retries import Backoffs
 from .variants import VARIANTS
 
@@ -47,7 +47,15 @@ class Results:
 
 def steps(names: list[str]):
     """How many times `run_variants()` calls `on_step()`."""
-    return len(names) + len(TRIPS)
+    return (len(_by_provider(names)) + 1) * len(TRIPS)
+
+
+def _by_provider(names: list[str]):
+    """Provider name -> the names of its variants."""
+    by_provider: dict[str, list[str]] = defaultdict(list)
+    for name in names:
+        by_provider[VARIANTS[name].name].append(name)
+    return by_provider
 
 
 async def run_variants(
@@ -55,18 +63,14 @@ async def run_variants(
     fetch: Fetch = fetch_routes_timed,
     get_edges: GetEdges = map_matching.get_edges,
     get_surroundings: GetSurroundings = surroundings.get_surroundings,
-    on_step: Callable[[str], None] = lambda message: None,
+    on_step: Callable[[str, Results], None] = lambda message, results: None,
 ):
     """Scores each variant's first route on each trip.
 
-    First fetches all of the routes, then scores them trip by trip (see `_Run`). Once a server rate-limits the run, it
-    gets no more requests. The API calls default to calling the APIs directly; pass cached versions to reuse results.
-    `on_step(message)` is called after each variant's routes and each trip's scores.
+    Fetches the routes trip by trip (see `_Run`), and scores each trip as soon as all of its routes are in, while the later trips' routes are still being fetched. Once a server rate-limits the run, it gets no more requests. The API calls default to calling the APIs directly; pass cached versions to reuse results. `on_step(message, results)` is called after each provider fetches a trip's routes and after each trip is scored, with the results so far.
     """
     run = _Run(names, fetch, get_edges, get_surroundings, on_step)
-    await run.fetch_routes()
-    for trip in TRIPS:
-        await run.score_trip(trip)
+    await asyncio.gather(run.fetch_routes(), run.score_trips())
     return run.results
 
 
@@ -77,7 +81,7 @@ class _Run:
         fetch: Fetch,
         get_edges: GetEdges,
         get_surroundings: GetSurroundings,
-        on_step: Callable[[str], None],
+        on_step: Callable[[str, Results], None],
     ):
         self.names = names
         self.fetch = fetch
@@ -85,24 +89,31 @@ class _Run:
         self.get_surroundings = get_surroundings
         self.on_step = on_step
         self.backoffs = Backoffs()
+        self.by_provider = _by_provider(names)
         # variant name -> trip -> its first route, or an error message
-        self.routes: dict[str, dict[str, Fetched | str]] = {}
+        self.routes: dict[str, dict[str, Fetched | str]] = {name: {} for name in names}
+        # trip -> how many providers are still fetching its routes, and whether they're done
+        self.fetching = {trip: len(self.by_provider) for trip in TRIPS}
+        self.fetched = {trip: asyncio.Event() for trip in TRIPS}
         self.results = Results({name: {} for name in names}, {})
 
-    async def fetch_routes(self):
-        """Each provider's variants one at a time, to be polite to its server, but different providers concurrently."""
-        by_provider: dict[str, list[str]] = defaultdict(list)
-        for name in self.names:
-            by_provider[VARIANTS[name].name].append(name)
-        await asyncio.gather(*map(self._fetch_variants, by_provider.values()))
+    def _step(self, message: str):
+        self.on_step(message, self.results)
 
-    async def _fetch_variants(self, names: list[str]):
-        for name in names:
-            self.routes[name] = {
-                trip: await self._fetch_first(VARIANTS[name], *ends)
-                for trip, ends in TRIPS.items()
-            }
-            self.on_step(f"Fetched routes: {name}")
+    async def fetch_routes(self):
+        """Each provider's requests one at a time, to be polite to its server, but different providers concurrently."""
+        await asyncio.gather(
+            *(self._fetch_provider(p, names) for p, names in self.by_provider.items())
+        )
+
+    async def _fetch_provider(self, provider: str, names: list[str]):
+        for trip, ends in TRIPS.items():
+            for name in names:
+                self.routes[name][trip] = await self._fetch_first(VARIANTS[name], *ends)
+            self._step(f"Fetched {short(trip)} routes: {provider}")
+            self.fetching[trip] -= 1
+            if not self.fetching[trip]:
+                self.fetched[trip].set()
 
     async def _fetch_first(self, provider: Provider, origin: Point, destination: Point):
         async def fetch() -> Fetched:
@@ -110,6 +121,12 @@ class _Run:
             return routes[0].points, seconds
 
         return await self.backoffs.attempt(provider.server or provider.name, fetch)
+
+    async def score_trips(self):
+        """Scores each trip once all of its routes are in."""
+        for trip in TRIPS:
+            await self.fetched[trip].wait()
+            await self.score_trip(trip)
 
     async def score_trip(self, trip: str):
         """Fetches the surroundings of all of the trip's routes at once (as the planner does, since they mostly
@@ -120,7 +137,7 @@ class _Run:
             self.results.trips[name][trip] = await self._score(
                 self.routes[name][trip], around
             )
-        self.on_step(f"Scored: {trip}")
+        self._step(f"Scored: {trip}")
 
     def _trip_routes(self, trip: str):
         return [self.routes[name][trip] for name in self.names]
