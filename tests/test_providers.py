@@ -112,6 +112,25 @@ def test_brouter_params(requests):
     assert route.url.params["profile:allow_steps"] == "0"
 
 
+def test_brouter_url(requests, monkeypatch, tmp_path):
+    monkeypatch.delenv("BROUTER_URL", raising=False)
+    public = BRouter("trekking")
+    assert public.request_interval_s > 0
+
+    monkeypatch.setenv("BROUTER_URL", "http://localhost:17777/brouter")
+    profile = tmp_path / "test.brf"
+    profile.write_text("---context:global")
+    local = BRouter(profile)
+    # no need to be polite to your own server
+    assert local.request_interval_s == 0
+    assert BRouter("trekking").cache_key != public.cache_key
+
+    asyncio.run(local.get_routes(ORIGIN, DESTINATION))
+    upload, route = requests
+    assert str(upload.url) == "http://localhost:17777/brouter/profile"
+    assert route.url.host == "localhost"
+
+
 def test_valhalla_sends_its_costing_options(requests):
     options = {"use_hills": 0.1}
     # the fake response isn't in Valhalla's format; only the request matters here
