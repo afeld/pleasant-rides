@@ -1,9 +1,7 @@
-import os
-
 import httpx
 import polyline
 
-from ._labels import unique
+from .base import Provider
 
 URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
 
@@ -11,32 +9,36 @@ URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
 ROUTE_LABELS = {"DEFAULT_ROUTE": "Best route", "DEFAULT_ROUTE_ALTERNATE": "Alternate"}
 
 
-async def get_routes(origin, destination):
-    """Requires GOOGLE_MAPS_API_KEY with the Routes API enabled."""
-    api_key = os.environ["GOOGLE_MAPS_API_KEY"]
+class Google(Provider):
+    """Requires a key with the Routes API enabled."""
 
-    def waypoint(p):
-        return {"location": {"latLng": {"latitude": p.lat, "longitude": p.lon}}}
+    name = "Google Maps"
+    api_key_var = "GOOGLE_MAPS_API_KEY"
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            URL,
-            headers={
-                "X-Goog-Api-Key": api_key,
-                "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.routeLabels,routes.description",
-            },
-            json={
-                "origin": waypoint(origin),
-                "destination": waypoint(destination),
-                "travelMode": "BICYCLE",
-                "computeAlternativeRoutes": True,
-            },
-            timeout=60.0,
-        )
-    response.raise_for_status()
-    routes = response.json().get("routes", [])
-    labels = unique(_label(r) for r in routes)
-    return [(label, polyline.decode(r["polyline"]["encodedPolyline"])) for label, r in zip(labels, routes)]
+    async def fetch(self, origin, destination):
+        api_key = self.api_key
+
+        def waypoint(p):
+            return {"location": {"latLng": {"latitude": p.lat, "longitude": p.lon}}}
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                URL,
+                headers={
+                    "X-Goog-Api-Key": api_key,
+                    "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.routeLabels,routes.description",
+                },
+                json={
+                    "origin": waypoint(origin),
+                    "destination": waypoint(destination),
+                    "travelMode": "BICYCLE",
+                    "computeAlternativeRoutes": True,
+                },
+                timeout=60.0,
+            )
+        response.raise_for_status()
+        routes = response.json().get("routes", [])
+        return [(_label(r), polyline.decode(r["polyline"]["encodedPolyline"])) for r in routes]
 
 
 def _label(route):

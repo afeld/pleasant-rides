@@ -1,6 +1,6 @@
-import os
-
 import httpx
+
+from .base import Provider
 
 URL = "https://graphhopper.com/api/1/route"
 
@@ -22,34 +22,43 @@ PLEASANT_MODEL = {
 }
 
 
-async def get_routes(origin, destination, profile="bike", custom_model=False):
-    """Requires GRAPHHOPPER_API_KEY (sign up at https://www.graphhopper.com).
+class GraphHopper(Provider):
+    """Requires a key (sign up at https://www.graphhopper.com).
 
     `custom_model=True` applies PLEASANT_MODEL, which needs a paid plan ("flexible mode").
     """
-    api_key = os.environ["GRAPHHOPPER_API_KEY"]
-    body = {
-        "points": [
-            [origin.lon, origin.lat],
-            [destination.lon, destination.lat],
-        ],
-        "profile": profile,
-        "algorithm": "alternative_route",
-        "alternative_route.max_paths": 3,
-        "points_encoded": False,
-        "instructions": False,
-    }
-    if custom_model:
-        body["custom_model"] = PLEASANT_MODEL
-        body["ch.disable"] = True
-    async with httpx.AsyncClient() as client:
-        response = await client.post(URL, params={"key": api_key}, json=body, timeout=60.0)
-    if response.is_error:
-        # the status alone doesn't say what was wrong with the request
-        raise RuntimeError(f"GraphHopper {response.status_code}: {response.json().get('message')}")
-    paths = response.json()["paths"]
-    # GeoJSON coordinates are [lon, lat]
-    return [
-        (f"GraphHopper {i}", [(c[1], c[0]) for c in path["points"]["coordinates"]])
-        for i, path in enumerate(paths, start=1)
-    ]
+
+    name = "GraphHopper"
+    api_key_var = "GRAPHHOPPER_API_KEY"
+
+    def __init__(self, profile="bike", custom_model=False):
+        self.profile = profile
+        self.custom_model = custom_model
+
+    async def fetch(self, origin, destination):
+        api_key = self.api_key
+        body = {
+            "points": [
+                [origin.lon, origin.lat],
+                [destination.lon, destination.lat],
+            ],
+            "profile": self.profile,
+            "algorithm": "alternative_route",
+            "alternative_route.max_paths": 3,
+            "points_encoded": False,
+            "instructions": False,
+        }
+        if self.custom_model:
+            body["custom_model"] = PLEASANT_MODEL
+            body["ch.disable"] = True
+        async with httpx.AsyncClient() as client:
+            response = await client.post(URL, params={"key": api_key}, json=body, timeout=60.0)
+        if response.is_error:
+            # the status alone doesn't say what was wrong with the request
+            raise RuntimeError(f"GraphHopper {response.status_code}: {response.json().get('message')}")
+        paths = response.json()["paths"]
+        # GeoJSON coordinates are [lon, lat]
+        return [
+            (f"GraphHopper {i}", [(c[1], c[0]) for c in path["points"]["coordinates"]])
+            for i, path in enumerate(paths, start=1)
+        ]

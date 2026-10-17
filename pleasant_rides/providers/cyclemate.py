@@ -1,31 +1,36 @@
-import os
-
 import httpx
+
+from .base import Provider
 
 URL = "https://api.cyclemate.club/directions/v2/"
 
 
-async def get_routes(origin, destination):
-    """Requires CYCLEMATE_API_KEY (request one via https://docs.cyclemate.club)."""
-    api_key = os.environ["CYCLEMATE_API_KEY"]
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            URL,
-            headers={"apikey": api_key},
-            json={
-                "coordinates": [
-                    [origin.lon, origin.lat],
-                    [destination.lon, destination.lat],
-                ],
-                "profile": "cycling",
-                "supersafe": True,
-            },
-            timeout=60.0,
-        )
-    response.raise_for_status()
-    route = response.json()["route"]
-    if route is None:
-        return []
-    # GeoJSON coordinates are [lon, lat]
-    points = [(c[1], c[0]) for c in route["geometry"]["coordinates"]]
-    return [("SuperSafe", points)]
+class Cyclemate(Provider):
+    """Requires a key (request one via https://docs.cyclemate.club)."""
+
+    name = "Cyclemate"
+    api_key_var = "CYCLEMATE_API_KEY"
+
+    async def fetch(self, origin, destination):
+        api_key = self.api_key
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                URL,
+                headers={"apikey": api_key},
+                json={
+                    "coordinates": [
+                        [origin.lon, origin.lat],
+                        [destination.lon, destination.lat],
+                    ],
+                    "profile": "cycling",
+                    "supersafe": True,
+                },
+                timeout=60.0,
+            )
+        response.raise_for_status()
+        route = response.json()["route"]
+        if route is None:
+            return []
+        # GeoJSON coordinates are [lon, lat]
+        points = [(c[1], c[0]) for c in route["geometry"]["coordinates"]]
+        return [("SuperSafe", points)]

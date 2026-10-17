@@ -3,7 +3,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from ._labels import unique
+from .base import Provider
 
 SOURCE = Path(__file__).with_suffix(".swift")
 BINARY = Path(__file__).parent / ".build" / "apple"
@@ -31,19 +31,22 @@ async def _binary():
     return BINARY
 
 
-async def get_routes(origin, destination):
+class Apple(Provider):
     """Requires macOS with the Xcode command line tools. Uses on-device MapKit, so no API key."""
-    stdout = await _run(
-        str(await _binary()),
-        str(origin.lat),
-        str(origin.lon),
-        str(destination.lat),
-        str(destination.lon),
-        timeout=60,
-    )
-    routes = json.loads(stdout)
-    labels = unique(_label(r) for r in routes)
-    return [(label, [tuple(p) for p in r["points"]]) for label, r in zip(labels, routes)]
+
+    name = "Apple Maps"
+
+    async def fetch(self, origin, destination):
+        stdout = await _run(
+            str(await _binary()),
+            str(origin.lat),
+            str(origin.lon),
+            str(destination.lat),
+            str(destination.lon),
+            timeout=60,
+        )
+        routes = json.loads(stdout)
+        return [(_label(r), r["points"]) for r in routes]
 
 
 def _label(route):

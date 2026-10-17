@@ -1,21 +1,19 @@
-"""Each provider exposes `get_routes(origin, destination) -> list[(label, [(lat, lon), ...])]`.
-
-`origin` and `destination` are `Point`s.
-"""
+"""Routing providers, each a `Provider` with `async get_routes(origin, destination) -> [Route, ...]`."""
 import asyncio
 import os
 import re
 
-from ..models import Point, Route
-from . import apple, brouter, cyclemate, google, graphhopper, valhalla
+from .apple import Apple
+from .brouter import BRouter
+from .cyclemate import Cyclemate
+from .google import Google
+from .graphhopper import GraphHopper
+from .valhalla import Valhalla
 
+# by name, in the order they're shown
 PROVIDERS = {
-    "Valhalla": valhalla.get_routes,
-    "BRouter": brouter.get_routes,
-    "GraphHopper": graphhopper.get_routes,
-    "Google Maps": google.get_routes,
-    "Cyclemate": cyclemate.get_routes,
-    "Apple Maps": apple.get_routes,
+    provider.name: provider
+    for provider in [Valhalla(), BRouter(), GraphHopper(), Google(), Cyclemate(), Apple()]
 }
 
 _SECRET_SUFFIXES = ("_KEY", "_TOKEN", "_SECRET", "_PASSWORD")
@@ -32,8 +30,8 @@ def redact(text):
 
 
 async def fetch_routes(name, origin, destination):
-    routes = await PROVIDERS[name](origin, destination)
-    return [Route(name, label, tuple(Point(*p) for p in points)) for label, points in routes]
+    """By provider name rather than object, so it can be cached by the app."""
+    return await PROVIDERS[name].get_routes(origin, destination)
 
 
 async def iter_routes(origin, destination, fetch=fetch_routes):
