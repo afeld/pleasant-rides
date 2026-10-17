@@ -4,6 +4,8 @@ They're persisted to disk, so they also survive restarting the app; use "Clear c
 Failures aren't cached (exceptions propagate), so they get retried on the next run, except ones that would only happen again (see `_unless_failed()`). Scores aren't cached, only the data they're computed from, so that changes to the scoring take effect.
 """
 
+import hashlib
+import inspect
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TypeVar
 
@@ -50,9 +52,19 @@ async def get_edges(points: Sequence[Point]):
     return await _unless_failed(("edges", tuple(points)), lambda: _get_edges(points))
 
 
-get_surroundings = st.cache_data(show_spinner=False, persist="disk")(
-    surroundings.get_surroundings
-)
+# Streamlit only notices changes to a cached function's own code, not to what it calls, so the code of the whole module is part of the key, so that e.g. adding a layer refetches the surroundings
+_SURROUNDINGS_CODE = hashlib.sha256(
+    inspect.getsource(surroundings).encode()
+).hexdigest()
+
+
+@st.cache_data(show_spinner=False, persist="disk")
+async def _get_surroundings(code: str, routes: Sequence[Sequence[Point]]):
+    return await surroundings.get_surroundings(routes)
+
+
+async def get_surroundings(routes: Sequence[Sequence[Point]]):
+    return await _get_surroundings(_SURROUNDINGS_CODE, routes)
 
 
 @st.cache_resource
