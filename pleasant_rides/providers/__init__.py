@@ -5,7 +5,7 @@
 import os
 import re
 
-from . import brouter, cyclemate, google, graphhopper, valhalla
+from . import apple, brouter, cyclemate, google, graphhopper, valhalla
 
 PROVIDERS = {
     "Valhalla": valhalla.get_routes,
@@ -13,6 +13,7 @@ PROVIDERS = {
     "GraphHopper": graphhopper.get_routes,
     "Google Maps": google.get_routes,
     "Cyclemate": cyclemate.get_routes,
+    "Apple Maps": apple.get_routes,
 }
 
 _SECRET_SUFFIXES = ("_KEY", "_TOKEN", "_SECRET", "_PASSWORD")
