@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 
 from ..models import Point, Route
 from .apple import Apple
+from .base import Provider
 from .brouter import BRouter
 from .cyclemate import Cyclemate
 from .google import Google
@@ -39,25 +40,24 @@ def redact(text: str):
     return _SECRET_PARAM.sub(r"\1<redacted>", text)
 
 
-async def fetch_routes(name: str, origin: Point, destination: Point):
-    """By provider name rather than object, so it can be cached by the app."""
-    return await PROVIDERS[name].get_routes(origin, destination)
+async def fetch_routes(provider: Provider, origin: Point, destination: Point):
+    return await provider.get_routes(origin, destination)
 
 
 async def iter_routes(
     origin: Point,
     destination: Point,
-    fetch: Callable[[str, Point, Point], Awaitable[list[Route]]] = fetch_routes,
+    fetch: Callable[[Provider, Point, Point], Awaitable[list[Route]]] = fetch_routes,
 ):
     """Runs every provider concurrently, yielding `(name, [Route, ...], error)` as each one finishes.
 
     `error` is a (redacted) message when the provider failed, e.g. from a missing API key, and `routes` is then None.
-    `fetch(name, origin, destination)` defaults to calling the provider directly; pass a cached version to reuse results.
+    `fetch(provider, origin, destination)` defaults to calling the provider directly; pass a cached version to reuse results.
     """
 
     async def run(name: str):
         try:
-            return name, await fetch(name, origin, destination), None
+            return name, await fetch(PROVIDERS[name], origin, destination), None
         except Exception as e:
             return name, None, redact(f"{name}: skipped ({type(e).__name__}: {e})")
 

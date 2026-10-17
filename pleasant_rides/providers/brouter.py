@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 
 import httpx
@@ -15,19 +16,25 @@ class BRouter(Provider):
     name = "BRouter"
 
     # `profile` is one of the public server's profiles, listed at https://brouter.de/brouter/profiles2/, or a local
-    # .brf file. Average scores on four sample trips (long, urban, rural, suburban):
+    # .brf file. `params` overrides the profile's `assign` variables for a request, e.g. {"consider_traffic": 0.5}.
     #
-    # - pleasant.brf: 81.8, though its long trip is ~11% longer than with "fastbike-lowtraffic". It's
-    #   "fastbike-lowtraffic" plus penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads.
-    #   Doubling those penalties only reached 82.0, with the long trip another ~4% longer, and preferring forests and
-    #   rivers didn't help.
-    # - "fastbike-lowtraffic" (https://brouter.de/brouter/profiles2/fastbike-lowtraffic.brf): 78.7, penalizing roads
-    #   that usually have traffic. "fastbike-verylowtraffic" (78.4), "racebike-verylowtraffic" (77.5), "safety"
-    #   (75.3), and "trekking" (73.9) did worse; "gravel" scored well but kept failing on the long trip.
-    # - "quaelnix-gravel", with its traffic, cycle route, and steep incline switches on: 81.4, with a long trip ~16%
-    #   longer than with "fastbike-lowtraffic".
-    def __init__(self, profile: str | Path = PLEASANT_PROFILE):
+    # pleasant.brf is "fastbike-lowtraffic" (https://brouter.de/brouter/profiles2/fastbike-lowtraffic.brf) plus
+    # penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads. On the sample trips in
+    # benchmark.py it averaged 81.8, vs. 78.7 for "fastbike-lowtraffic", though its long trip is ~11% longer; the
+    # variants there are the alternatives tried.
+    def __init__(
+        self, profile: str | Path = PLEASANT_PROFILE, params: dict | None = None
+    ):
         self.profile = profile
+        self.params = params or {}
+
+    @property
+    def cache_key(self):
+        key = super().cache_key
+        if isinstance(self.profile, Path):
+            # so that editing the file gets new routes
+            key += hashlib.sha256(self.profile.read_bytes()).hexdigest()
+        return key
 
     async def _profile_id(self, client: httpx.AsyncClient):
         if not isinstance(self.profile, Path):
@@ -54,6 +61,11 @@ class BRouter(Provider):
                     "profile": await self._profile_id(client),
                     "alternativeidx": 0,
                     "format": "geojson",
+                    # the server rejects "true"/"false"
+                    **{
+                        f"profile:{k}": int(v) if isinstance(v, bool) else v
+                        for k, v in self.params.items()
+                    },
                 },
                 timeout=120.0,
             )

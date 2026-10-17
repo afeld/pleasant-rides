@@ -20,8 +20,26 @@ def _decode_trip(trip: dict[str, Any]):
     return points
 
 
+# https://valhalla.github.io/valhalla/api/route/api-reference/#bicycle-costing-options
+# On the sample trips in benchmark.py these averaged 79.9, vs. 78.6 with the previous settings (bicycle_type "road",
+# use_roads 0.2, avoid_bad_surfaces 0.8); the variants there are the alternatives tried.
+PLEASANT_OPTIONS = {
+    # assumes wider tires than "road", so crushed gravel and the like aren't avoided as much
+    "bicycle_type": "hybrid",
+    # 0 avoids roads (as opposed to bike paths) as much as possible
+    "use_roads": 0.0,
+    "use_hills": 0.3,
+    "use_ferry": 0.0,
+    # our "smooth" metric only counts dirt, gravel, and worse as rough
+    "avoid_bad_surfaces": 0.5,
+}
+
+
 class Valhalla(Provider):
     name = "Valhalla"
+
+    def __init__(self, costing_options: dict = PLEASANT_OPTIONS):
+        self.costing_options = costing_options
 
     async def fetch(self, origin: Point, destination: Point):
         params = {
@@ -30,22 +48,7 @@ class Valhalla(Provider):
                 {"lat": destination.lat, "lon": destination.lon},
             ],
             "costing": "bicycle",
-            # https://valhalla.github.io/valhalla/api/route/api-reference/#bicycle-costing-options
-            # Tuned against our scores on four sample trips (long, urban, rural, suburban): these averaged 79.9, vs.
-            # 78.6 with the previous settings (bicycle_type "road", use_roads 0.2, avoid_bad_surfaces 0.8). Stronger
-            # hill avoidance, a turn penalty (maneuver_penalty), and use_living_streets made no real difference.
-            "costing_options": {
-                "bicycle": {
-                    # assumes wider tires than "road", so crushed gravel and the like aren't avoided as much
-                    "bicycle_type": "hybrid",
-                    # 0 avoids roads (as opposed to bike paths) as much as possible
-                    "use_roads": 0.0,
-                    "use_hills": 0.3,
-                    "use_ferry": 0.0,
-                    # our "smooth" metric only counts dirt, gravel, and worse as rough
-                    "avoid_bad_surfaces": 0.5,
-                }
-            },
+            "costing_options": {"bicycle": self.costing_options},
             "directions_options": {"units": "miles"},
         }
         async with httpx.AsyncClient() as client:

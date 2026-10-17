@@ -58,7 +58,11 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    uv run --env-file .env streamlit run app.py
    ```
 
-   It opens at http://localhost:8501. The app reruns when you save `app.py` or anything under `pleasant_rides/`. Routes are cached per origin/destination, so to refetch them, use "Clear cache" from the app's ⋮ menu.
+   It opens at http://localhost:8501. The app reruns when you save `app.py`, its pages under `app_pages/`, or anything under `pleasant_rides/`. Routes are cached per provider (and its settings) and origin/destination, so to refetch them, use "Clear cache" from the app's ⋮ menu.
+
+## Benchmarking
+
+The app's Benchmark page compares providers' routing parameters. It scores each variant's first route on a few sample trips. To try new parameters, add a variant to `VARIANTS` in [`pleasant_rides/benchmark.py`](pleasant_rides/benchmark.py). Results come from the providers' live servers, so they can drift; compare against the baselines (the `(current)` variants) from the same run.
 
 ## See also
 

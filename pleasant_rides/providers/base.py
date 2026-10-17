@@ -24,6 +24,11 @@ class Provider(ABC):
             raise MissingAPIKey(f"set {self.api_key_var}")
         return key
 
+    @property
+    def cache_key(self):
+        """Identifies the provider and its settings, so their routes can be cached."""
+        return f"{type(self).__name__}({vars(self)!r})"
+
     @abstractmethod
     async def fetch(self, origin: Point, destination: Point) -> Sequence[RawRoute]:
         """Returns the routes from the provider's API."""
