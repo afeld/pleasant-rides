@@ -6,16 +6,22 @@ Mapping apps are good at getting you from place to place, but they generally opt
 
 A "pleasant" bike ride is:
 
-- Enjoyable
+- **Enjoyable**
   - Things to look at, such as:
     - Nature
     - Good views
   - Points of interest
-- Easy
+- **Easy**
   - Avoids steep climbs/descents
   - Avoids taking a ton of turns
-  - Smooth-ish surface
-- Safe
+  - Smooth-ish surface, such as:
+    - Pavement
+    - Boardwalks (where cycling is permitted)
+    - Crushed gravel
+  - Minimal walking required, such as:
+    - One-ways
+    - Stairs
+- **Safe**
   - Minimal:
     - Vehicular traffic
     - Intersections
