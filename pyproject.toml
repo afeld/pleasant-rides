@@ -12,3 +12,10 @@ dependencies = [
     # 1.64.0 added st.cache_data support for async functions
     "streamlit>=1.64.0",
 ]
+
+# read by both Pylance and the Pyright CLI
+[tool.pyright]
+# "strict" also flags every value read from untyped JSON (API responses, Valhalla's edges)
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
