@@ -194,7 +194,7 @@ def test_table_row():
     }
     row = table_row(VALHALLA, trips)
     assert row["Provider"] == "Valhalla"
-    assert row["Mean"] == 75
+    assert row["Score"] == 75
     assert row["Routing s"] == 5
     assert row["Long score"] == 80
     assert row["Long km"] == 100
@@ -205,7 +205,7 @@ def test_table_row_leaves_out_totals_when_a_trip_failed():
     trips: dict[str, TripResult] = {trip: TripScore(80, 10, 1) for trip in TRIPS}
     trips[next(iter(TRIPS))] = "RuntimeError: down"
     row = table_row(VALHALLA, trips)
-    assert row["Mean"] is None
+    assert row["Score"] is None
     assert row["Routing s"] is None
     assert row["Long score"] is None
 

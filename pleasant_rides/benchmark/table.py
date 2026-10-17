@@ -11,7 +11,7 @@ from .variants import VARIANTS
 def table_row(name: str, trips: Mapping[str, TripResult]):
     """A variant's row in the results table.
 
-    Trips that haven't been scored yet are left blank. The mean score and total routing time are only filled in when every trip worked, since they're only comparable then.
+    Trips that haven't been scored yet are left blank. The overall score (the average of the trips' scores) and total routing time are only filled in when every trip worked, since they're only comparable then.
     """
     scored = [r for r in trips.values() if isinstance(r, TripScore)]
     complete = len(scored) == len(TRIPS)
@@ -25,7 +25,7 @@ def table_row(name: str, trips: Mapping[str, TripResult]):
     return {
         "Variant": name,
         "Provider": VARIANTS[name].name,
-        "Mean": statistics.mean(r.score for r in scored) if complete else None,
+        "Score": statistics.mean(r.score for r in scored) if complete else None,
         "Routing s": sum(r.seconds for r in scored) if complete else None,
         **cells,
     }

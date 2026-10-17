@@ -35,8 +35,12 @@ done = 0
 # Streamlit's default row height, plus the header, so that every variant shows without scrolling
 ROW_HEIGHT_PX = 35
 COLUMNS = {
-    "Mean": st.column_config.ProgressColumn(
-        "Mean", format="%.1f", min_value=0, max_value=100
+    "Score": st.column_config.ProgressColumn(
+        "Score",
+        help="The average of the trips' scores. Each variant is run once per trip.",
+        format="%.1f",
+        min_value=0,
+        max_value=100,
     ),
     **{
         f"{short(t)} score": st.column_config.NumberColumn(
@@ -66,7 +70,7 @@ COLUMNS = {
 
 def show_table(results: Results):
     rows = [table_row(name, results.trips[name]) for name in names]
-    rows.sort(key=lambda r: (r["Mean"] is not None, r["Mean"] or 0), reverse=True)
+    rows.sort(key=lambda r: (r["Score"] is not None, r["Score"] or 0), reverse=True)
     table.dataframe(
         rows,
         hide_index=True,
