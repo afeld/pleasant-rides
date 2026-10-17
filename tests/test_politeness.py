@@ -86,3 +86,15 @@ def test_other_errors_arent_retried():
     assert not is_retryable(
         ProviderError("rate limited", retryable=True, rate_limited=True)
     )
+
+
+def test_permanent_errors():
+    from pleasant_rides.politeness import is_permanent
+
+    assert is_permanent(
+        status_error("Test", response(400), "Free packages cannot use flexible mode")
+    )
+    assert not is_permanent(status_error("Test", response(429), "slow down"))
+    assert not is_permanent(status_error("Test", response(503), "busy"))
+    assert not is_permanent(ProviderError("busy", retryable=True))
+    assert not is_permanent(RuntimeError("bug"))

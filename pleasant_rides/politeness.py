@@ -62,3 +62,12 @@ def is_retryable(error: Exception):
     if isinstance(error, httpx.TransportError):
         return True
     return isinstance(error, ProviderError) and error.retryable
+
+
+def is_permanent(error: Exception):
+    """Whether trying again would only fail the same way, like a bad request or a feature that needs a paid plan."""
+    if is_rate_limited(error) or is_retryable(error):
+        return False
+    if isinstance(error, httpx.HTTPStatusError):
+        return 400 <= error.response.status_code < 500
+    return isinstance(error, ProviderError)

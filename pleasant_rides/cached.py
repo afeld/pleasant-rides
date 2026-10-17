@@ -1,16 +1,21 @@
 """Cached versions of the API calls, shared by the app's pages, so reruns don't hit the providers again.
 
 They're persisted to disk, so they also survive restarting the app; use "Clear cache" from the app's ⋮ menu to refetch.
-Failures aren't cached (exceptions propagate), so they get retried on the next run. Scores aren't cached, only the data
-they're computed from, so that changes to the scoring take effect.
+Failures aren't cached (exceptions propagate), so they get retried on the next run, except ones that would only happen again (see `_unless_failed()`). Scores aren't cached, only the data they're computed from, so that changes to the scoring take effect.
 """
+
+from collections.abc import Awaitable, Callable, Sequence
+from typing import TypeVar
 
 import streamlit as st
 
 from . import map_matching, providers, surroundings
 from .geocode import geocode_place
 from .models import Point
+from .politeness import ProviderError, is_permanent
 from .providers.base import Provider
+
+T = TypeVar("T")
 
 geocode = st.cache_data(show_spinner="Geocoding…", persist="disk")(geocode_place)
 
@@ -26,7 +31,11 @@ async def _fetch_routes_timed(
 
 
 async def fetch_routes_timed(provider: Provider, origin: Point, destination: Point):
-    return await _fetch_routes_timed(provider.cache_key, provider, origin, destination)
+    key = provider.cache_key
+    return await _unless_failed(
+        ("routes", key, origin, destination),
+        lambda: _fetch_routes_timed(key, provider, origin, destination),
+    )
 
 
 async def fetch_routes(provider: Provider, origin: Point, destination: Point):
@@ -34,7 +43,32 @@ async def fetch_routes(provider: Provider, origin: Point, destination: Point):
     return routes
 
 
-get_edges = st.cache_data(show_spinner=False, persist="disk")(map_matching.get_edges)
+_get_edges = st.cache_data(show_spinner=False, persist="disk")(map_matching.get_edges)
+
+
+async def get_edges(points: Sequence[Point]):
+    return await _unless_failed(("edges", tuple(points)), lambda: _get_edges(points))
+
+
 get_surroundings = st.cache_data(show_spinner=False, persist="disk")(
     surroundings.get_surroundings
 )
+
+
+@st.cache_resource
+def _permanent_failures() -> dict[tuple, str]:
+    """Call -> the message of an error it got that would only happen again (see `politeness.is_permanent()`), shared across sessions. In memory rather than on disk, so restarting the app tries them again, e.g. after upgrading a provider's plan."""
+    return {}
+
+
+async def _unless_failed(key: tuple, call: Callable[[], Awaitable[T]]) -> T:
+    """Returns what `call()` does, unless the same call already failed in a way that would only happen again, in which case it raises that error again without making the request."""
+    failures = _permanent_failures()
+    if key in failures:
+        raise ProviderError(failures[key])
+    try:
+        return await call()
+    except Exception as e:
+        if is_permanent(e):
+            failures[key] = str(e)
+        raise
