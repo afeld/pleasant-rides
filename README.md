@@ -58,7 +58,7 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    uv run --env-file .env streamlit run app.py
    ```
 
-   It opens at http://localhost:8501. The app reruns when you save `app.py`, its pages under `app_pages/`, or anything under `pleasant_rides/`. Routes are cached per provider (and its settings) and origin/destination, so to refetch them, use "Clear cache" from the app's ⋮ menu.
+   It opens at http://localhost:8501. The app reruns when you save `app.py`, its pages under `app_pages/`, or anything under `pleasant_rides/`. Routes are cached to disk (in `~/.streamlit/cache`) per provider (and its settings) and origin/destination, so they're kept across restarts. To refetch them, use "Clear cache" from the app's ⋮ menu.
 
 ## Benchmarking
 
