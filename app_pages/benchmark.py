@@ -1,8 +1,11 @@
 import asyncio
 import time
+from datetime import datetime
 
 import streamlit as st
 
+from pleasant_rides.benchmark import last_run
+from pleasant_rides.benchmark.last_run import LastRun
 from pleasant_rides.benchmark.runner import Results, run_variants, steps
 from pleasant_rides.benchmark.table import table_row
 from pleasant_rides.benchmark.variants import VARIANTS
@@ -17,20 +20,12 @@ st.caption(
 )
 
 with st.form("benchmark"):
-    names = st.multiselect("Variants", list(VARIANTS), default=list(VARIANTS))
-    if st.form_submit_button("Run"):
-        st.session_state.benchmark_names = names
+    selected = st.multiselect("Variants", list(VARIANTS), default=list(VARIANTS))
+    run_now = st.form_submit_button("Run")
 
-# kept across reruns (e.g. from code changes), which are quick since the results are cached
-# (leaving out any that have been renamed or removed since)
-names = [n for n in st.session_state.get("benchmark_names", []) if n in VARIANTS]
-if not names:
-    st.stop()
-
-progress = st.progress(0.0, text="Running…")
+progress = st.empty()
 summary = st.empty()
 table = st.empty()
-done = 0
 
 # Streamlit's default row height, plus the header, so that every variant shows without scrolling
 ROW_HEIGHT_PX = 35
@@ -68,7 +63,7 @@ COLUMNS = {
 }
 
 
-def show_table(results: Results):
+def show_table(names: list[str], results: Results):
     rows = [table_row(name, results.trips[name]) for name in names]
     rows.sort(key=lambda r: (r["Score"] is not None, r["Score"] or 0), reverse=True)
     table.dataframe(
@@ -80,36 +75,54 @@ def show_table(results: Results):
     )
 
 
-def on_step(message: str, results: Results):
-    global done
-    done += 1
-    progress.progress(done / steps(names), text=message)
-    # trips appear in the table as they're scored
-    if message.startswith("Scored"):
-        show_table(results)
+def run(names: list[str]):
+    """Runs the benchmark, showing the results as they come in, and saves them."""
+    done = 0
+
+    def on_step(message: str, results: Results):
+        nonlocal done
+        done += 1
+        progress.progress(done / steps(names), text=message)
+        # trips appear in the table as they're scored
+        if message.startswith("Scored"):
+            show_table(names, results)
+
+    started = time.perf_counter()
+    results = asyncio.run(
+        run_variants(names, fetch_routes_timed, get_edges, get_surroundings, on_step)
+    )
+    progress.empty()
+    finished = LastRun(names, results, datetime.now(), time.perf_counter() - started)
+    last_run.save(finished)
+    return finished
 
 
-started = time.perf_counter()
-results = asyncio.run(
-    run_variants(names, fetch_routes_timed, get_edges, get_surroundings, on_step)
-)
-progress.empty()
+def show_errors(names: list[str], results: Results):
+    errors = [
+        redact(f"{name}, {trip}: {result}")
+        for name in names
+        for trip, result in results.trips[name].items()
+        if isinstance(result, str)
+    ]
+    errors += [
+        f"{trip}: couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({error})"
+        for trip, error in results.surroundings_errors.items()
+    ]
+    if errors:
+        with st.expander(f"Errors ({len(errors)})"):
+            st.caption("These aren't cached, so they're retried on the next run.")
+            st.markdown("\n".join(f"- {e}" for e in errors))
+
+
+# only runs when asked to; otherwise, including on reruns from code changes, shows the last run's results
+latest = run(selected) if run_now and selected else last_run.load(selected)
+if not latest:
+    st.caption("These variants haven't been run yet.")
+    st.stop()
+# leaving out variants that have been renamed or removed since
+shown = [name for name in latest.names if name in VARIANTS]
 summary.caption(
-    f"Ran in {time.perf_counter() - started:.0f} s, reusing cached routes and scoring data where possible. The routing times are from when the routes were fetched."
+    f"Last run {latest.finished:%b %-d at %-I:%M %p}, in {latest.seconds:.0f} s, reusing cached routes and scoring data where possible. The routing times are from when the routes were fetched."
 )
-show_table(results)
-
-errors = [
-    redact(f"{name}, {trip}: {result}")
-    for name in names
-    for trip, result in results.trips[name].items()
-    if isinstance(result, str)
-]
-errors += [
-    f"{trip}: couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({error})"
-    for trip, error in results.surroundings_errors.items()
-]
-if errors:
-    with st.expander(f"Errors ({len(errors)})"):
-        st.caption("These aren't cached, so they're retried on the next run.")
-        st.markdown("\n".join(f"- {e}" for e in errors))
+show_table(shown, latest.results)
+show_errors(shown, latest.results)
