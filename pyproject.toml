@@ -8,7 +8,10 @@ dependencies = [
     "folium>=0.20.0",
     "httpx>=0.28.1",
     "ipykernel>=7.3.0",
+    "overturemaps>=1.0.2",
     "polyline>=2.0.4",
+    "pyproj>=3.7.1",
+    "shapely>=2.1.2",
     # 1.64.0 added st.cache_data support for async functions
     "streamlit>=1.64.0",
 ]

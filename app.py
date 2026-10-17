@@ -8,7 +8,8 @@ from pleasant_rides.geocode import geocode_place
 from pleasant_rides.map import build_map
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, fetch_routes, iter_routes, redact
-from pleasant_rides.scoring import METRICS, Metric, Share, score_route
+from pleasant_rides.scoring import METRICS, Metric, Ride, get_edges, score
+from pleasant_rides.surroundings import get_surroundings
 
 st.set_page_config(page_title="Pleasant Rides", layout="wide")
 st.title("Pleasant Ride Planner")
@@ -17,7 +18,8 @@ st.title("Pleasant Ride Planner")
 # Routes are cached per provider, so one that fails (which isn't cached) gets retried without refetching the others.
 geocode = st.cache_data(show_spinner="Geocoding…")(geocode_place)
 cached_fetch_routes = st.cache_data(show_spinner=False)(fetch_routes)
-cached_score_route = st.cache_data(show_spinner=False)(score_route)
+cached_get_edges = st.cache_data(show_spinner=False)(get_edges)
+cached_get_surroundings = st.cache_data(show_spinner=False)(get_surroundings)
 
 # a form, so that editing a field doesn't trigger a rerun (and a round of API calls) on its own
 with st.form("route"):
@@ -99,7 +101,7 @@ async def show_routes():
 
 
 def column(metric: Metric):
-    if isinstance(metric, Share):
+    if metric.format == "percent":
         return st.column_config.ProgressColumn(
             metric.label, help=metric.help, format=metric.format
         )
@@ -110,9 +112,20 @@ def column(metric: Metric):
 
 async def show_scores(provider_routes: dict[str, list[Route]]):
     routes = all_routes(provider_routes)
-    results = await asyncio.gather(
-        *(cached_score_route(route.points) for route in routes), return_exceptions=True
+    # the surroundings of all the routes are fetched at once, since they mostly overlap
+    surroundings_task = asyncio.create_task(
+        cached_get_surroundings(tuple(route.points for route in routes))
     )
+    results = await asyncio.gather(
+        *(cached_get_edges(route.points) for route in routes), return_exceptions=True
+    )
+    try:
+        surroundings = await surroundings_task
+    except Exception as error:
+        st.warning(
+            f"Couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({type(error).__name__}: {error})"
+        )
+        surroundings = None
     scored = []
     for route, result in zip(routes, results):
         if isinstance(result, BaseException):
@@ -122,7 +135,7 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
                 )
             )
         else:
-            scored.append((route, result))
+            scored.append((route, score(Ride(route.points, result, surroundings))))
     scored.sort(key=lambda pair: pair[1].total, reverse=True)
     st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
     rows = [
@@ -151,7 +164,6 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
         },
         column_order=["Provider", "Route", "score", *(m.key for m in METRICS)],
     )
-    st.caption("Scenery, points of interest, and remoteness aren't scored yet.")
 
 
 asyncio.run(show_routes())

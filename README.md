@@ -50,7 +50,7 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    CYCLEMATE_API_KEY=...
    ```
 
-   Valhalla and BRouter use public servers and don't need keys. The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs.
+   Valhalla and BRouter use public servers and don't need keys. The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs. Scoring also uses Valhalla's public server, plus [Overture Maps](https://overturemaps.org/) data for scenery, points of interest, and remoteness, which is downloaded from its public S3 bucket.
 
 1. Start the app:
 
