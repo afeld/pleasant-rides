@@ -14,8 +14,8 @@ async def get_routes(origin, destination):
             headers={"apikey": api_key},
             json={
                 "coordinates": [
-                    [origin["lon"], origin["lat"]],
-                    [destination["lon"], destination["lat"]],
+                    [origin.lon, origin.lat],
+                    [destination.lon, destination.lat],
                 ],
                 "profile": "cycling",
                 "supersafe": True,

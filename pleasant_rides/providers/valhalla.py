@@ -19,8 +19,8 @@ def _decode_trip(trip):
 async def get_routes(origin, destination):
     params = {
         "locations": [
-            {"lat": origin["lat"], "lon": origin["lon"]},
-            {"lat": destination["lat"], "lon": destination["lon"]},
+            {"lat": origin.lat, "lon": origin.lon},
+            {"lat": destination.lat, "lon": destination.lon},
         ],
         "costing": "bicycle",
         "costing_options": {

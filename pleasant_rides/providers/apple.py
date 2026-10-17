@@ -35,10 +35,10 @@ async def get_routes(origin, destination):
     """Requires macOS with the Xcode command line tools. Uses on-device MapKit, so no API key."""
     stdout = await _run(
         str(await _binary()),
-        str(origin["lat"]),
-        str(origin["lon"]),
-        str(destination["lat"]),
-        str(destination["lon"]),
+        str(origin.lat),
+        str(origin.lon),
+        str(destination.lat),
+        str(destination.lon),
         timeout=60,
     )
     routes = json.loads(stdout)

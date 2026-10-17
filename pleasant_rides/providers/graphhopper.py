@@ -30,8 +30,8 @@ async def get_routes(origin, destination, profile="bike", custom_model=False):
     api_key = os.environ["GRAPHHOPPER_API_KEY"]
     body = {
         "points": [
-            [origin["lon"], origin["lat"]],
-            [destination["lon"], destination["lat"]],
+            [origin.lon, origin.lat],
+            [destination.lon, destination.lat],
         ],
         "profile": profile,
         "algorithm": "alternative_route",

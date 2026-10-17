@@ -26,9 +26,8 @@ with st.form("route"):
     st.form_submit_button("Route")
 
 try:
-    # only the coordinates, so the rest of the geocoder response doesn't affect the cache keys
-    origin_point = {k: geocode(origin)[k] for k in ("lat", "lon")}
-    destination_point = {k: geocode(destination)[k] for k in ("lat", "lon")}
+    origin_point = geocode(origin)
+    destination_point = geocode(destination)
 except IndexError:
     st.error("Couldn't find one of those places.")
     st.stop()
@@ -45,18 +44,23 @@ PARTIAL_MAP_AFTER_S = 1
 
 # keyed by the places, so a new search starts without a selection
 table_key = f"scores:{origin_point}:{destination_point}"
-# the (provider, label) of each row, saved when the table was drawn, since selections only give row numbers
+# the Route.id of each row, saved when the table was drawn, since selections only give row numbers
 row_ids = st.session_state.get(f"{table_key}:ids", [])
 selected_rows = st.session_state[table_key].selection.rows if table_key in st.session_state else []
-highlight = row_ids[selected_rows[0]] if selected_rows else None
+highlight_id = row_ids[selected_rows[0]] if selected_rows else None
+
+
+def all_routes(provider_routes):
+    """Flattens provider name -> [Route, ...], in a consistent order."""
+    return [route for name in PROVIDERS for route in provider_routes.get(name, [])]
 
 
 def draw_map(provider_routes):
-    # keep the layers in a consistent order
-    ordered = {n: provider_routes[n] for n in PROVIDERS if provider_routes.get(n)}
-    if ordered:
+    routes = all_routes(provider_routes)
+    if routes:
+        highlight = next((r for r in routes if r.id == highlight_id), None)
         with map_placeholder:
-            components.html(build_map(ordered, highlight).get_root().render(), height=MAP_HEIGHT)
+            components.html(build_map(routes, highlight).get_root().render(), height=MAP_HEIGHT)
 
 
 async def show_routes():
@@ -88,22 +92,19 @@ async def show_routes():
 
 
 async def show_scores(provider_routes):
-    routes = [
-        (provider, label, points)
-        for provider in PROVIDERS
-        for label, points in provider_routes.get(provider) or []
-    ]
+    routes = all_routes(provider_routes)
     results = await asyncio.gather(
-        *(cached_score_route(points) for _, _, points in routes), return_exceptions=True
+        *(cached_score_route(route.points) for route in routes), return_exceptions=True
     )
-    rows = []
-    for (provider, label, _), result in zip(routes, results):
+    scored = []
+    for route, result in zip(routes, results):
         if isinstance(result, Exception):
-            st.warning(redact(f"{provider} {label}: couldn't score ({type(result).__name__}: {result})"))
+            st.warning(redact(f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"))
         else:
-            rows.append({"Provider": provider, "Route": label, **result})
-    rows.sort(key=lambda row: row["score"], reverse=True)
-    st.session_state[f"{table_key}:ids"] = [(row["Provider"], row["Route"]) for row in rows]
+            scored.append((route, result))
+    scored.sort(key=lambda pair: pair[1]["score"], reverse=True)
+    st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
+    rows = [{"Provider": route.provider, "Route": route.label, **metrics} for route, metrics in scored]
 
     share = st.column_config.ProgressColumn
     st.subheader("Scores")

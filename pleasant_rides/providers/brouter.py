@@ -9,7 +9,7 @@ async def get_routes(origin, destination, profile="trekking"):
         response = await client.get(
             URL,
             params={
-                "lonlats": f"{origin['lon']},{origin['lat']}|{destination['lon']},{destination['lat']}",
+                "lonlats": f"{origin.lon},{origin.lat}|{destination.lon},{destination.lat}",
                 "profile": profile,
                 "alternativeidx": 0,
                 "format": "geojson",

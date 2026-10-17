@@ -1,5 +1,7 @@
 import httpx
 
+from .models import Point
+
 
 def geocode_place(query):
     response = httpx.get(
@@ -9,6 +11,4 @@ def geocode_place(query):
         timeout=30.0,
     )
     result = response.json()[0]
-    result["lat"] = float(result["lat"])
-    result["lon"] = float(result["lon"])
-    return result
+    return Point(float(result["lat"]), float(result["lon"]))

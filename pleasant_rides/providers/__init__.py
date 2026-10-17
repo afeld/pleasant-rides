@@ -1,11 +1,12 @@
 """Each provider exposes `get_routes(origin, destination) -> list[(label, [(lat, lon), ...])]`.
 
-`origin` and `destination` are dicts with `lat` and `lon` keys.
+`origin` and `destination` are `Point`s.
 """
 import asyncio
 import os
 import re
 
+from ..models import Point, Route
 from . import apple, brouter, cyclemate, google, graphhopper, valhalla
 
 PROVIDERS = {
@@ -31,11 +32,12 @@ def redact(text):
 
 
 async def fetch_routes(name, origin, destination):
-    return await PROVIDERS[name](origin, destination)
+    routes = await PROVIDERS[name](origin, destination)
+    return [Route(name, label, tuple(Point(*p) for p in points)) for label, points in routes]
 
 
 async def iter_routes(origin, destination, fetch=fetch_routes):
-    """Runs every provider concurrently, yielding `(name, routes, error)` as each one finishes.
+    """Runs every provider concurrently, yielding `(name, [Route, ...], error)` as each one finishes.
 
     `error` is a (redacted) message when the provider failed, e.g. from a missing API key, and `routes` is then None.
     `fetch(name, origin, destination)` defaults to calling the provider directly; pass a cached version to reuse results.

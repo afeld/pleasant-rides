@@ -16,7 +16,7 @@ async def get_routes(origin, destination):
     api_key = os.environ["GOOGLE_MAPS_API_KEY"]
 
     def waypoint(p):
-        return {"location": {"latLng": {"latitude": p["lat"], "longitude": p["lon"]}}}
+        return {"location": {"latLng": {"latitude": p.lat, "longitude": p.lon}}}
 
     async with httpx.AsyncClient() as client:
         response = await client.post(

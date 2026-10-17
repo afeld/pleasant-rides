@@ -103,17 +103,15 @@ class RouteTooltip(MacroElement):
 COLORS = ["#E63946", "#1D3557", "#2A9D8F", "#F4A261", "#457B9D", "#8338EC"]
 
 
-def build_map(provider_routes, highlight=None):
-    """`provider_routes` maps provider name -> list of (label, points). One toggleable layer per provider.
+def build_map(routes, highlight=None):
+    """Maps a list of `Route`s, with one toggleable layer per provider, in the order they first appear.
 
-    `highlight` is an optional (provider, label) to draw on top of the others, which are faded, and zoom to.
+    `highlight` is an optional `Route` to draw on top of the others, which are faded, and zoom to.
     """
-    all_points = [
-        pt
-        for routes in provider_routes.values()
-        for _, points in routes
-        for pt in points
-    ]
+    provider_routes = {}
+    for route in routes:
+        provider_routes.setdefault(route.provider, []).append(route)
+    all_points = [pt for route in routes for pt in route.points]
     if not all_points:
         raise ValueError("no routes to map")
 
@@ -127,16 +125,16 @@ def build_map(provider_routes, highlight=None):
             # Leaflet's layer control renders names as HTML, so add a color swatch
             name=f'<span style="color:{color}; font-size:1.2em">&#9632;</span> {provider}'
         )
-        for label, points in routes:
-            if (provider, label) == highlight:
-                highlighted = (color, points)
-            line = folium.PolyLine(points, color=color, weight=5, opacity=0.3 if highlight else 0.8)
+        for route in routes:
+            if highlight and route.id == highlight.id:
+                highlighted = (color, route.points)
+            line = folium.PolyLine(route.points, color=color, weight=5, opacity=0.3 if highlight else 0.8)
             # folium drops unknown options in the constructor; RouteTooltip reads this one
-            line.options["routeLabel"] = f'<span style="color:{color}">&#9632;</span> {provider}: {label}'
+            line.options["routeLabel"] = f'<span style="color:{color}">&#9632;</span> {provider}: {route.label}'
             line.add_to(layer)
         layer.add_to(m)
 
-    first = next(iter(provider_routes.values()))[0][1]
+    first = routes[0].points
     folium.Marker(first[0], tooltip="Start", icon=folium.Icon(color="green")).add_to(m)
     folium.Marker(first[-1], tooltip="End", icon=folium.Icon(color="red")).add_to(m)
 
