@@ -10,8 +10,15 @@ from .base import Provider
 
 URL = "https://brouter.de/brouter"
 
-# our own profile, which gets uploaded to the server for each request
+# our own profile, which gets uploaded to the server
 PLEASANT_PROFILE = Path(__file__).with_name("pleasant.brf")
+
+# a local profile's contents (as `_digest()`) -> the ID the server gave it when uploaded, so each version is only uploaded once. The server deletes uploaded profiles eventually (then answering with an empty 500), so an ID is forgotten whenever a request using it fails, and the profile gets uploaded again on the next try.
+_uploaded: dict[str, str] = {}
+
+
+def _digest(profile: Path):
+    return hashlib.sha256(profile.read_bytes()).hexdigest()
 
 
 class BRouter(Provider):
@@ -37,19 +44,16 @@ class BRouter(Provider):
         key = super().cache_key
         if isinstance(self.profile, Path):
             # so that editing the file gets new routes
-            key += hashlib.sha256(self.profile.read_bytes()).hexdigest()
+            key += _digest(self.profile)
         return key
 
     async def _profile_id(self, client: httpx.AsyncClient):
         if not isinstance(self.profile, Path):
             return self.profile
-        response = await client.post(
-            f"{URL}/profile", content=self.profile.read_text(), timeout=30.0
-        )
-        body = response.json()
-        if response.is_error or "error" in body:
-            raise ProviderError(f"BRouter profile upload: {body.get('error')}")
-        return body["profileid"]
+        digest = _digest(self.profile)
+        if digest not in _uploaded:
+            _uploaded[digest] = await _upload(client, self.profile)
+        return _uploaded[digest]
 
     @property
     def profile_name(self):
@@ -78,11 +82,24 @@ class BRouter(Provider):
                 timeout=120.0,
             )
         if response.is_error:
+            if isinstance(self.profile, Path):
+                _uploaded.pop(_digest(self.profile), None)
             raise _error(response)
         feature = response.json()["features"][0]
         # GeoJSON coordinates are [lon, lat(, elevation)]
         points = [(c[1], c[0]) for c in feature["geometry"]["coordinates"]]
         return [(f"BRouter ({self.profile_name})", points)]
+
+
+async def _upload(client: httpx.AsyncClient, profile: Path):
+    """Returns the ID the server gives the profile."""
+    response = await client.post(
+        f"{URL}/profile", content=profile.read_text(), timeout=30.0
+    )
+    body = response.json()
+    if response.is_error or "error" in body:
+        raise ProviderError(f"BRouter profile upload: {body.get('error')}")
+    return body["profileid"]
 
 
 def _error(response: httpx.Response):

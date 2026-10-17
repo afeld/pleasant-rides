@@ -7,7 +7,7 @@ import pytest
 from pleasant_rides.http_client import USER_AGENT
 from pleasant_rides.models import Point
 from pleasant_rides.politeness import ProviderError, is_rate_limited, is_retryable
-from pleasant_rides.providers import iter_routes, redact
+from pleasant_rides.providers import brouter, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey, Provider
 from pleasant_rides.providers.brouter import BRouter
 from pleasant_rides.providers.valhalla import PLEASANT_OPTIONS, Valhalla
@@ -29,6 +29,11 @@ class Fake(Provider):
 
     async def fetch(self, origin, destination):
         return [(label, [origin, destination]) for label in self.labels]
+
+
+@pytest.fixture(autouse=True)
+def no_uploaded_profiles(monkeypatch):
+    monkeypatch.setattr(brouter, "_uploaded", {})
 
 
 @pytest.fixture
@@ -178,3 +183,44 @@ def test_requests_identify_the_app(requests):
     (route,) = requests
     assert route.headers["User-Agent"] == USER_AGENT
     assert "github.com/afeld/pleasant-rides" in USER_AGENT
+
+
+def test_brouter_uploads_each_profile_version_once(requests, tmp_path):
+    profile = tmp_path / "test.brf"
+    profile.write_text("one")
+    for _ in range(2):
+        asyncio.run(BRouter(profile).get_routes(ORIGIN, DESTINATION))
+    profile.write_text("two")
+    asyncio.run(BRouter(profile).get_routes(ORIGIN, DESTINATION))
+
+    uploads = [r.content for r in requests if r.url.path.endswith("/profile")]
+    assert uploads == [b"one", b"two"]
+
+
+def test_brouter_uploads_again_after_a_failure(monkeypatch, tmp_path):
+    """The server deletes uploaded profiles eventually, answering with an empty 500."""
+    made: list[httpx.Request] = []
+
+    def handle(request: httpx.Request):
+        made.append(request)
+        if request.url.path.endswith("/profile"):
+            return httpx.Response(200, json={"profileid": f"custom_{len(made)}"})
+        if request.url.params["profile"] == "custom_1":
+            return httpx.Response(500)
+        return httpx.Response(200, json=GEOJSON)
+
+    client = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: client(transport=httpx.MockTransport(handle), **kwargs),
+    )
+    profile = tmp_path / "test.brf"
+    profile.write_text("one")
+    with pytest.raises(ProviderError):
+        asyncio.run(BRouter(profile).get_routes(ORIGIN, DESTINATION))
+    asyncio.run(BRouter(profile).get_routes(ORIGIN, DESTINATION))
+
+    uploads = [r for r in made if r.url.path.endswith("/profile")]
+    assert len(uploads) == 2
+    assert made[-1].url.params["profile"] == "custom_3"
