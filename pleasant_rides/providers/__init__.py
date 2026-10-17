@@ -7,6 +7,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 from ..models import Point, Route
+from ..politeness import wait_turn
 from .apple import Apple
 from .base import Provider
 from .brouter import BRouter
@@ -42,11 +43,16 @@ def redact(text: str):
 
 
 async def fetch_routes(provider: Provider, origin: Point, destination: Point):
-    return await provider.get_routes(origin, destination)
+    routes, _ = await fetch_routes_timed(provider, origin, destination)
+    return routes
 
 
 async def fetch_routes_timed(provider: Provider, origin: Point, destination: Point):
-    """Returns the routes and how many seconds the provider took to return them."""
+    """Returns the routes and how many seconds the provider took to return them.
+
+    Waits its turn first if there were other requests to the provider's server just before, to be polite to it.
+    """
+    await wait_turn(provider.server or provider.name, provider.request_interval_s)
     started = time.perf_counter()
     routes = await provider.get_routes(origin, destination)
     return routes, time.perf_counter() - started

@@ -14,7 +14,8 @@ from typing import TypeVar
 
 from . import scoring, surroundings
 from .models import Point, Route
-from .providers import PROVIDERS, fetch_routes_timed
+from .politeness import is_rate_limited, is_retryable
+from .providers import PROVIDERS, fetch_routes_timed, valhalla
 from .providers.base import MissingAPIKey, Provider
 from .providers.brouter import BRouter
 from .providers.graphhopper import GraphHopper
@@ -89,10 +90,9 @@ VARIANTS: dict[str, Provider] = {
     "GraphHopper: custom model": GraphHopper(custom_model=True),
 }
 
+# for errors that might go away, like a busy server; see politeness.is_retryable()
 ATTEMPTS = 3
-RETRY_AFTER_S = 5
-# map matching goes through Valhalla's public server, so go easy on it
-MAP_MATCHING_CONCURRENCY = 2
+RETRY_AFTER_S = 10
 
 # returns the routes and how many seconds the provider took
 Fetch = Callable[[Provider, Point, Point], Awaitable[tuple[list[Route], float]]]
@@ -114,20 +114,38 @@ TripResult = TripScore | str
 T = TypeVar("T")
 
 
-async def _attempt(call: Callable[[], Awaitable[T]]) -> T | str:
-    """Returns what `call()` does, or an error message if it keeps failing."""
-    error = ""
-    for attempt in range(ATTEMPTS):
-        if attempt:
-            await asyncio.sleep(RETRY_AFTER_S)
-        try:
-            return await call()
-        except MissingAPIKey as e:
-            return f"skipped ({e})"
-        except Exception as e:
-            # the public servers fail on long routes now and then, which tends to work on a retry
-            error = f"{type(e).__name__}: {e}"
-    return error
+class _Backoffs:
+    """Which servers have asked for fewer requests during a run, so they don't get any more."""
+
+    def __init__(self):
+        # server -> why it's skipped
+        self.reasons: dict[str, str] = {}
+
+    async def attempt(self, server: str, call: Callable[[], Awaitable[T]]) -> T | str:
+        """Returns what `call()` does, or an error message.
+
+        Only retries errors that might go away (like a busy server), and not at all once `server` has rate-limited us.
+        """
+        if server in self.reasons:
+            return self.reasons[server]
+        error = ""
+        for attempt in range(ATTEMPTS):
+            if attempt:
+                await asyncio.sleep(RETRY_AFTER_S)
+            try:
+                return await call()
+            except MissingAPIKey as e:
+                return f"skipped ({e})"
+            except Exception as e:
+                error = f"{type(e).__name__}: {e}"
+                if is_rate_limited(e):
+                    self.reasons[server] = (
+                        f"skipped, since {server} asked for fewer requests ({error})"
+                    )
+                    return error
+                if not is_retryable(e):
+                    return error
+        return error
 
 
 @dataclass
@@ -153,11 +171,13 @@ async def run_variants(
 ):
     """Scores each variant's first route on each trip.
 
-    First fetches the routes: each provider's variants one at a time, to not overload its server, but different
+    First fetches the routes: each provider's variants one at a time, to be polite to its server, but different
     providers concurrently. Then, for each trip, fetches the surroundings of all of its routes at once (as the planner
-    does, since they mostly overlap) and scores them. The API calls default to calling the APIs directly; pass cached
-    versions to reuse results. `on_step(message)` is called after each variant's routes and each trip's scores.
+    does, since they mostly overlap), map-matches the routes one at a time, and scores them. Once a server rate-limits
+    the run, it gets no more requests. The API calls default to calling the APIs directly; pass cached versions to
+    reuse results. `on_step(message)` is called after each variant's routes and each trip's scores.
     """
+    backoffs = _Backoffs()
     by_provider: dict[str, list[str]] = defaultdict(list)
     for name in names:
         by_provider[VARIANTS[name].name].append(name)
@@ -170,8 +190,13 @@ async def run_variants(
 
     async def fetch_provider(variant_names: list[str]):
         for name in variant_names:
+            provider = VARIANTS[name]
+            server = provider.server or provider.name
             points[name] = {
-                trip: await _attempt(lambda: fetch_first(VARIANTS[name], *ends))
+                trip: await backoffs.attempt(
+                    server,
+                    lambda provider=provider, ends=ends: fetch_first(provider, *ends),
+                )
                 for trip, ends in TRIPS.items()
             }
             on_step(f"Fetched routes: {name}")
@@ -179,25 +204,25 @@ async def run_variants(
     await asyncio.gather(*(fetch_provider(v) for v in by_provider.values()))
 
     results = Results({name: {} for name in names}, {})
-    map_matching = asyncio.Semaphore(MAP_MATCHING_CONCURRENCY)
-
-    async def edges_for(route: Sequence[Point]):
-        async with map_matching:
-            return await _attempt(lambda: get_edges(route))
-
     for trip in TRIPS:
         routes = {
             name: fetched[0]
             for name in names
             if not isinstance(fetched := points[name][trip], str)
         }
-        found = await _attempt(lambda: get_surroundings(tuple(routes.values())))
+        found = await backoffs.attempt(
+            "Overture Maps",
+            lambda routes=routes: get_surroundings(tuple(routes.values())),
+        )
         if isinstance(found, str):
             results.surroundings_errors[trip] = found
         around = None if isinstance(found, str) else found
-        edges = dict(
-            zip(routes, await asyncio.gather(*map(edges_for, routes.values())))
-        )
+        edges = {
+            name: await backoffs.attempt(
+                valhalla.SERVER, lambda route=route: get_edges(route)
+            )
+            for name, route in routes.items()
+        }
         for name in names:
             fetched, route_edges = points[name][trip], edges.get(name, "")
             if isinstance(fetched, str):

@@ -1,6 +1,7 @@
 import httpx
 
 from ..models import Point
+from ..politeness import status_error
 from .base import Provider
 
 URL = "https://graphhopper.com/api/1/route"
@@ -38,6 +39,8 @@ class GraphHopper(Provider):
     """
 
     name = "GraphHopper"
+    # the free plan is rate limited
+    request_interval_s = 1
     api_key_var = "GRAPHHOPPER_API_KEY"
 
     def __init__(self, profile: str = "bike", custom_model: bool = False):
@@ -66,9 +69,7 @@ class GraphHopper(Provider):
             )
         if response.is_error:
             # the status alone doesn't say what was wrong with the request
-            raise RuntimeError(
-                f"GraphHopper {response.status_code}: {response.json().get('message')}"
-            )
+            raise status_error("GraphHopper", response, response.json().get("message"))
         paths = response.json()["paths"]
         # GeoJSON coordinates are [lon, lat]
         return [

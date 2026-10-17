@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 
 from ..models import Point
+from ..politeness import ProviderError
 from .base import Provider
 
 URL = "https://brouter.de/brouter"
@@ -14,6 +15,8 @@ PLEASANT_PROFILE = Path(__file__).with_name("pleasant.brf")
 
 class BRouter(Provider):
     name = "BRouter"
+    # a free public server
+    request_interval_s = 2
 
     # `profile` is one of the public server's profiles, listed at https://brouter.de/brouter/profiles2/, or a local
     # .brf file. `params` overrides the profile's `assign` variables for a request, e.g. {"consider_traffic": 0.5}.
@@ -44,7 +47,7 @@ class BRouter(Provider):
         )
         body = response.json()
         if response.is_error or "error" in body:
-            raise RuntimeError(f"BRouter profile upload: {body.get('error')}")
+            raise ProviderError(f"BRouter profile upload: {body.get('error')}")
         return body["profileid"]
 
     @property
@@ -70,10 +73,14 @@ class BRouter(Provider):
                 timeout=120.0,
             )
         if response.is_error:
-            # the body says what went wrong, e.g. that the public server gave up on a long route while busy
-            # ("operation killed by thread-priority-watchdog"), which tends to work on a retry
-            raise RuntimeError(
-                f"BRouter {response.status_code}: {response.text.strip()}"
+            # the body says what went wrong: e.g. that the public server gave up on a long route while busy
+            # ("operation killed by thread-priority-watchdog"), which tends to work on a retry, or to slow down
+            # (403 "Please, retry later!")
+            text = response.text.strip()
+            raise ProviderError(
+                f"BRouter {response.status_code}: {text}",
+                retryable=response.status_code >= 500 or "watchdog" in text,
+                rate_limited=response.status_code in (403, 429),
             )
         feature = response.json()["features"][0]
         # GeoJSON coordinates are [lon, lat(, elevation)]

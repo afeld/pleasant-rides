@@ -16,6 +16,10 @@ class Provider(ABC):
     name: str
     # the environment variable holding this provider's API key, if it needs one
     api_key_var: str | None = None
+    # the minimum seconds between requests to the provider's server (by default, named after the provider), to be
+    # polite to it when making several, e.g. on the Benchmark page; see `providers.fetch_routes()`
+    request_interval_s: float = 0
+    server: str | None = None
 
     @property
     def api_key(self):

@@ -11,12 +11,14 @@ import httpx
 
 from . import surroundings
 from .models import Point
+from .politeness import status_error, wait_turn
+from .providers import valhalla
 from .surroundings import Surroundings
 
 # a road segment from Valhalla's trace_attributes
 Edge = dict[str, Any]
 
-URL = "https://valhalla1.openstreetmap.de/trace_attributes"
+URL = f"https://{valhalla.SERVER}/trace_attributes"
 
 ATTRIBUTES = [
     "edge.length",
@@ -71,12 +73,11 @@ async def get_edges(points: Sequence[Point]):
         "shape_match": "map_snap",
         "filters": {"attributes": ATTRIBUTES, "action": "include"},
     }
+    await wait_turn(valhalla.SERVER, valhalla.REQUEST_INTERVAL_S)
     async with httpx.AsyncClient() as client:
         response = await client.post(URL, json=body, timeout=120.0)
     if response.is_error:
-        raise RuntimeError(
-            f"Valhalla {response.status_code}: {response.json().get('error')}"
-        )
+        raise status_error("Valhalla", response, response.json().get("error"))
     return response.json()["edges"]
 
 

@@ -7,7 +7,10 @@ import polyline
 from ..models import Point
 from .base import Provider
 
-URL = "https://valhalla1.openstreetmap.de/route"
+SERVER = "valhalla1.openstreetmap.de"
+URL = f"https://{SERVER}/route"
+# a free public server, which scoring also uses for map matching
+REQUEST_INTERVAL_S = 1
 
 
 def _decode_trip(trip: dict[str, Any]):
@@ -37,6 +40,8 @@ PLEASANT_OPTIONS = {
 
 class Valhalla(Provider):
     name = "Valhalla"
+    server = SERVER
+    request_interval_s = REQUEST_INTERVAL_S
 
     def __init__(self, costing_options: dict = PLEASANT_OPTIONS):
         self.costing_options = costing_options
