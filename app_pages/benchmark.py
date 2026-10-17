@@ -3,20 +3,15 @@ import time
 
 import streamlit as st
 
-from pleasant_rides.benchmark import (
-    TRIPS,
-    VARIANTS,
-    run_variants,
-    short,
-    steps,
-    table_row,
-)
+from pleasant_rides.benchmark.runner import run_variants, steps
+from pleasant_rides.benchmark.table import short, table_row
+from pleasant_rides.benchmark.variants import TRIPS, VARIANTS
 from pleasant_rides.cached import fetch_routes_timed, get_edges, get_surroundings
 from pleasant_rides.providers import redact
 
 st.title("Benchmark")
 st.caption(
-    "Scores each variant's first route on a few sample trips. Variants are defined in `pleasant_rides/benchmark.py`. "
+    "Scores each variant's first route on a few sample trips. Variants are defined in `pleasant_rides/benchmark/variants.py`. "
     "Results come from the providers' live servers, so compare against the `(current)` baselines from the same run."
 )
 

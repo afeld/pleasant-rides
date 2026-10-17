@@ -23,9 +23,9 @@ class BRouter(Provider):
     # .brf file. `params` overrides the profile's `assign` variables for a request, e.g. {"consider_traffic": 0.5}.
     #
     # pleasant.brf is "fastbike-lowtraffic" (https://brouter.de/brouter/profiles2/fastbike-lowtraffic.brf) plus
-    # penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads. On the sample trips in
-    # benchmark.py it averaged 81.8, vs. 78.7 for "fastbike-lowtraffic", though its long trip is ~11% longer; the
-    # variants there are the alternatives tried.
+    # penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads. On the Benchmark page's sample
+    # trips it averaged 81.8, vs. 78.7 for "fastbike-lowtraffic", though its long trip is ~11% longer; the variants in
+    # benchmark/variants.py are the alternatives tried.
     def __init__(
         self, profile: str | Path = PLEASANT_PROFILE, params: dict | None = None
     ):

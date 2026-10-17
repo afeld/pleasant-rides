@@ -2,15 +2,15 @@ import asyncio
 
 import pytest
 
-from pleasant_rides import benchmark
-from pleasant_rides.benchmark import (
-    TRIPS,
-    VARIANTS,
+from pleasant_rides.benchmark import retries
+from pleasant_rides.benchmark.runner import (
     TripResult,
     TripScore,
     run_variants,
-    table_row,
+    steps,
 )
+from pleasant_rides.benchmark.table import table_row
+from pleasant_rides.benchmark.variants import TRIPS, VARIANTS
 from pleasant_rides.models import Point, Route
 from pleasant_rides.politeness import ProviderError
 from pleasant_rides.providers.base import MissingAPIKey
@@ -22,7 +22,7 @@ BROUTER = "BRouter (current)"
 
 @pytest.fixture(autouse=True)
 def no_retry_delay(monkeypatch):
-    monkeypatch.setattr(benchmark, "RETRY_AFTER_S", 0)
+    monkeypatch.setattr(retries, "RETRY_AFTER_S", 0)
 
 
 def route(provider, origin, destination):
@@ -42,22 +42,22 @@ async def no_surroundings(routes):
 
 
 def run(names, fetch=fetch, get_edges=get_edges, get_surroundings=no_surroundings):
-    steps = []
+    messages = []
     results = asyncio.run(
-        run_variants(names, fetch, get_edges, get_surroundings, steps.append)
+        run_variants(names, fetch, get_edges, get_surroundings, messages.append)
     )
-    return results, steps
+    return results, messages
 
 
 def test_scores_each_variant_on_each_trip():
-    results, steps = run([VALHALLA, BROUTER])
+    results, messages = run([VALHALLA, BROUTER])
     for name in [VALHALLA, BROUTER]:
         assert set(results.trips[name]) == set(TRIPS)
         for result in results.trips[name].values():
             assert isinstance(result, TripScore)
             assert result.score == pytest.approx(100)
             assert (result.km, result.seconds) == (1.0, 1.5)
-    assert len(steps) == benchmark.steps([VALHALLA, BROUTER])
+    assert len(messages) == steps([VALHALLA, BROUTER])
 
 
 def test_records_surroundings_errors_per_trip():
@@ -102,7 +102,7 @@ def test_gives_up_after_repeated_failures():
 
     results, _ = run([VALHALLA], fetch=busy)
     assert set(results.trips[VALHALLA].values()) == {"ProviderError: server busy"}
-    assert len(attempts) == len(TRIPS) * benchmark.ATTEMPTS
+    assert len(attempts) == len(TRIPS) * retries.ATTEMPTS
 
 
 def test_doesnt_retry_errors_that_wont_go_away():
