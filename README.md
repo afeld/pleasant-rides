@@ -68,9 +68,10 @@ The app's Benchmark page compares providers' routing parameters. It scores each 
 
 ```sh
 uv run pytest
+uv run pyright
 ```
 
-The tests don't make network requests.
+The tests don't make network requests. GitHub Actions runs both on pushes to `main` and on pull requests.
 
 ## See also
 
