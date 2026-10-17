@@ -29,13 +29,20 @@ def redact(text):
     return _SECRET_PARAM.sub(r"\1<redacted>", text)
 
 
-def get_all_routes(origin, destination):
-    """Returns (provider name -> routes, messages about providers that failed and were skipped)."""
+def fetch_routes(name, origin, destination):
+    return PROVIDERS[name](origin, destination)
+
+
+def get_all_routes(origin, destination, fetch=fetch_routes):
+    """Returns (provider name -> routes, messages about providers that failed and were skipped).
+
+    `fetch(name, origin, destination)` defaults to calling the provider directly; pass a cached version to reuse results.
+    """
     provider_routes = {}
     skipped = []
-    for name, get_routes in PROVIDERS.items():
+    for name in PROVIDERS:
         try:
-            provider_routes[name] = get_routes(origin, destination)
+            provider_routes[name] = fetch(name, origin, destination)
         except Exception as e:  # e.g. missing API key
             skipped.append(redact(f"{name}: skipped ({type(e).__name__}: {e})"))
     return provider_routes, skipped
