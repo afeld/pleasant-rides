@@ -2,7 +2,12 @@
 
 from ..providers import PROVIDERS
 from ..providers.base import Provider
-from ..providers.brouter import DEFAULT_PARAMS, PLEASANT_PROFILE, BRouter
+from ..providers.brouter import (
+    DEFAULT_PARAMS,
+    PLEASANT_PROFILE,
+    QUIET_PROFILE,
+    BRouter,
+)
 from ..providers.graphhopper import GraphHopper
 from ..providers.valhalla import PLEASANT_OPTIONS, Valhalla
 
@@ -73,6 +78,13 @@ VARIANTS: dict[str, Provider] = {
     "BRouter: current + noise": BRouter(
         params={**DEFAULT_PARAMS, "consider_noise": True}
     ),
+    # quiet.brf is the current profile + noise, with `noise_strength` to avoid noise more strongly
+    **{
+        f"BRouter: quiet, noise ×{strength}": BRouter(
+            QUIET_PROFILE, {"noise_strength": strength}
+        )
+        for strength in [1, 2, 4, 8]
+    },
     # other cycling profiles and custom models need a paid plan
     "GraphHopper: custom model": GraphHopper(custom_model=True),
 }

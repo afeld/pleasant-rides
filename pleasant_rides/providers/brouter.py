@@ -21,6 +21,9 @@ DEFAULT_PARAMS = {
 # our own profile, which gets uploaded to the server: "fastbike-lowtraffic" (https://brouter.de/brouter/profiles2/fastbike-lowtraffic.brf) plus penalties for fast and wide roads, climbs, and primary/secondary/tertiary roads. It was the default before scenery, points of interest, and remoteness were scored.
 PLEASANT_PROFILE = Path(__file__).with_name("pleasant.brf")
 
+# quaelnix-gravel with the default parameters, avoiding noisy areas (roads close to busy ones), with `noise_strength` to scale how strongly; see the file
+QUIET_PROFILE = Path(__file__).with_name("quiet.brf")
+
 # a local profile's contents (as `_digest()`) -> the ID the server gave it when uploaded, so each version is only uploaded once. The server deletes uploaded profiles eventually (then answering with an empty 500), so an ID is forgotten whenever a request using it fails, and the profile gets uploaded again on the next try.
 _uploaded: dict[str, str] = {}
 
