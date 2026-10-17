@@ -60,6 +60,7 @@ VARIANTS: dict[str, Provider] = {
     "Valhalla: + turn penalty, living streets": Valhalla(
         {**PLEASANT_OPTIONS, "maneuver_penalty": 30, "use_living_streets": 1.0}
     ),
+    "Valhalla: avoid ferries": Valhalla({**PLEASANT_OPTIONS, "use_ferry": 0.0}),
     "Valhalla: use_hills 0.1": Valhalla({**PLEASANT_OPTIONS, "use_hills": 0.1}),
     "BRouter: pleasant, stronger penalties": BRouter(params=STRONGER_BROUTER),
     "BRouter: pleasant + forests/rivers": BRouter(

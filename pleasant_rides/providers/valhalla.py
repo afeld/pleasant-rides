@@ -29,7 +29,7 @@ PLEASANT_OPTIONS = {
     # 0 avoids roads (as opposed to bike paths) as much as possible
     "use_roads": 0.0,
     "use_hills": 0.3,
-    "use_ferry": 0.0,
+    # use_ferry is left at its default (0.5), since taking a ferry is fine
     # our "smooth" metric only counts dirt, gravel, and worse as rough
     "avoid_bad_surfaces": 0.5,
 }
