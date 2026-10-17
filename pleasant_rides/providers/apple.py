@@ -21,7 +21,9 @@ async def _run(*args: str, timeout: float):
         process.kill()
         raise
     if process.returncode:
-        raise subprocess.CalledProcessError(process.returncode, args, stdout, stderr.decode())
+        raise subprocess.CalledProcessError(
+            process.returncode, args, stdout, stderr.decode()
+        )
     return stdout
 
 

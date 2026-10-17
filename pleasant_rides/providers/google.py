@@ -41,7 +41,10 @@ class Google(Provider):
             )
         response.raise_for_status()
         routes = response.json().get("routes", [])
-        return [(_label(r), polyline.decode(r["polyline"]["encodedPolyline"])) for r in routes]
+        return [
+            (_label(r), polyline.decode(r["polyline"]["encodedPolyline"]))
+            for r in routes
+        ]
 
 
 def _label(route: dict[str, Any]):

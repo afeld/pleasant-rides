@@ -47,7 +47,9 @@ PARTIAL_MAP_AFTER_S = 1
 table_key = f"scores:{origin_point}:{destination_point}"
 # the Route.id of each row, saved when the table was drawn, since selections only give row numbers
 row_ids = st.session_state.get(f"{table_key}:ids", [])
-selected_rows = st.session_state[table_key].selection.rows if table_key in st.session_state else []
+selected_rows = (
+    st.session_state[table_key].selection.rows if table_key in st.session_state else []
+)
 highlight_id = row_ids[selected_rows[0]] if selected_rows else None
 
 
@@ -61,7 +63,9 @@ def draw_map(provider_routes: dict[str, list[Route]]):
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
         with map_placeholder:
-            components.html(build_map(routes, highlight).get_root().render(), height=MAP_HEIGHT)
+            components.html(
+                build_map(routes, highlight).get_root().render(), height=MAP_HEIGHT
+            )
 
 
 async def show_routes():
@@ -69,7 +73,9 @@ async def show_routes():
     pending = set(PROVIDERS)
     status.caption(f"Waiting on: {', '.join(sorted(pending))}")
     started = time.monotonic()
-    async for name, routes, error in iter_routes(origin_point, destination_point, fetch=cached_fetch_routes):
+    async for name, routes, error in iter_routes(
+        origin_point, destination_point, fetch=cached_fetch_routes
+    ):
         pending.discard(name)
         if error:
             warnings.warning(error)
@@ -94,8 +100,12 @@ async def show_routes():
 
 def column(metric: Metric):
     if isinstance(metric, Share):
-        return st.column_config.ProgressColumn(metric.label, help=metric.help, format=metric.format)
-    return st.column_config.NumberColumn(metric.label, help=metric.help or None, format=metric.format)
+        return st.column_config.ProgressColumn(
+            metric.label, help=metric.help, format=metric.format
+        )
+    return st.column_config.NumberColumn(
+        metric.label, help=metric.help or None, format=metric.format
+    )
 
 
 async def show_scores(provider_routes: dict[str, list[Route]]):
@@ -106,13 +116,22 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     scored = []
     for route, result in zip(routes, results):
         if isinstance(result, BaseException):
-            st.warning(redact(f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"))
+            st.warning(
+                redact(
+                    f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"
+                )
+            )
         else:
             scored.append((route, result))
     scored.sort(key=lambda pair: pair[1].total, reverse=True)
     st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
     rows = [
-        {"Provider": route.provider, "Route": route.label, "score": card.total, **card.values}
+        {
+            "Provider": route.provider,
+            "Route": route.label,
+            "score": card.total,
+            **card.values,
+        }
         for route, card in scored
     ]
 
@@ -125,7 +144,9 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
         selection_mode="single-row",
         hide_index=True,
         column_config={
-            "score": st.column_config.ProgressColumn("Score", format="%.0f", min_value=0, max_value=100),
+            "score": st.column_config.ProgressColumn(
+                "Score", format="%.0f", min_value=0, max_value=100
+            ),
             **{m.key: column(m) for m in METRICS},
         },
         column_order=["Provider", "Route", "score", *(m.key for m in METRICS)],

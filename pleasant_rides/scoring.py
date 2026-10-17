@@ -42,7 +42,16 @@ ATTRIBUTES = [
 
 # https://valhalla.github.io/valhalla/api/map-matching/api-reference/#edge-items
 BUSY_ROAD_CLASSES = {"motorway", "trunk", "primary", "secondary"}
-CAR_FREE_USES = {"cycleway", "path", "footway", "pedestrian", "mountain_bike", "living_street", "track", "steps"}
+CAR_FREE_USES = {
+    "cycleway",
+    "path",
+    "footway",
+    "pedestrian",
+    "mountain_bike",
+    "living_street",
+    "track",
+    "steps",
+}
 SEPARATED_CYCLE_LANES = {"dedicated", "separated"}
 # pavement, boardwalks, and crushed gravel (OSM's "compacted"/"fine_gravel") are all fine
 ROUGH_SURFACES = {"dirt", "gravel", "path", "impassable"}
@@ -65,7 +74,9 @@ async def get_edges(points: Sequence[Point]):
     async with httpx.AsyncClient() as client:
         response = await client.post(URL, json=body, timeout=120.0)
     if response.is_error:
-        raise RuntimeError(f"Valhalla {response.status_code}: {response.json().get('error')}")
+        raise RuntimeError(
+            f"Valhalla {response.status_code}: {response.json().get('error')}"
+        )
     return response.json()["edges"]
 
 
@@ -79,7 +90,9 @@ def _is_low_traffic(edge: Edge):
 
 def _is_walking(edge: Edge):
     # riding against the edge's allowed direction means it's a one-way the wrong way
-    wrong_way = edge.get("traversability") == ("backward" if edge.get("forward", True) else "forward")
+    wrong_way = edge.get("traversability") == (
+        "backward" if edge.get("forward", True) else "forward"
+    )
     return edge.get("use") in WALKING_USES or edge.get("sac_scale", 0) > 0 or wrong_way
 
 
@@ -87,7 +100,11 @@ def _turns(edges: list[Edge]):
     """Changes in heading of more than TURN_DEGREES between consecutive road segments."""
     # segments inside an intersection (e.g. between a divided road's two sides) and roundabouts aren't turns of their
     # own, and would double count the turn they're part of
-    segments = [e for e in edges if not e.get("internal_intersection") and not e.get("roundabout")]
+    segments = [
+        e
+        for e in edges
+        if not e.get("internal_intersection") and not e.get("roundabout")
+    ]
     turns = 0
     for a, b in zip(segments, segments[1:]):
         if "end_heading" not in a or "begin_heading" not in b:
@@ -110,7 +127,9 @@ def _intersections(edges: list[Edge]):
 
 def _climb(edges: list[Edge]):
     """Total elevation gain in meters, from the change in mean elevation between consecutive edges."""
-    elevations = [e["mean_elevation"] for e in edges if e.get("mean_elevation") is not None]
+    elevations = [
+        e["mean_elevation"] for e in edges if e.get("mean_elevation") is not None
+    ]
     return sum(max(b - a, 0) for a, b in zip(elevations, elevations[1:]))
 
 
@@ -247,8 +266,20 @@ METRICS = [
         condition=lambda e: e["speed_limit"] < FAST_KPH,
         of=_posted,
     ),
-    Share("few_lanes", "1-2 lanes", "Of roads", weight=1, condition=lambda e: e.get("lane_count", 1) <= 2, of=_roads),
-    Share("bike_network", "Bike network", "On a designated bike route", condition=lambda e: bool(e.get("bicycle_network"))),
+    Share(
+        "few_lanes",
+        "1-2 lanes",
+        "Of roads",
+        weight=1,
+        condition=lambda e: e.get("lane_count", 1) <= 2,
+        of=_roads,
+    ),
+    Share(
+        "bike_network",
+        "Bike network",
+        "On a designated bike route",
+        condition=lambda e: bool(e.get("bicycle_network")),
+    ),
 ]
 
 
@@ -262,7 +293,11 @@ class Scorecard:
 
 def score(edges: list[Edge]):
     values = {m.key: m.measure(edges) for m in METRICS}
-    weighted = [(m.score(values[m.key]), m.weight) for m in METRICS if m.weight and values[m.key] is not None]
+    weighted = [
+        (m.score(values[m.key]), m.weight)
+        for m in METRICS
+        if m.weight and values[m.key] is not None
+    ]
     total = 100 * sum(s * w for s, w in weighted) / sum(w for _, w in weighted)
     return Scorecard(values, total)
 

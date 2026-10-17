@@ -1,4 +1,5 @@
 """Routing providers, each a `Provider` with `async get_routes(origin, destination) -> [Route, ...]`."""
+
 import asyncio
 import os
 import re
@@ -15,7 +16,14 @@ from .valhalla import Valhalla
 # by name, in the order they're shown
 PROVIDERS = {
     provider.name: provider
-    for provider in [Valhalla(), BRouter(), GraphHopper(), Google(), Cyclemate(), Apple()]
+    for provider in [
+        Valhalla(),
+        BRouter(),
+        GraphHopper(),
+        Google(),
+        Cyclemate(),
+        Apple(),
+    ]
 }
 
 _SECRET_SUFFIXES = ("_KEY", "_TOKEN", "_SECRET", "_PASSWORD")

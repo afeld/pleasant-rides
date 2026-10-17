@@ -130,9 +130,13 @@ def build_map(routes: list[Route], highlight: Route | None = None):
         for route in routes:
             if highlight and route.id == highlight.id:
                 highlighted = (color, route.points)
-            line = folium.PolyLine(route.points, color=color, weight=5, opacity=0.3 if highlight else 0.8)
+            line = folium.PolyLine(
+                route.points, color=color, weight=5, opacity=0.3 if highlight else 0.8
+            )
             # folium drops unknown options in the constructor; RouteTooltip reads this one
-            line.options["routeLabel"] = f'<span style="color:{color}">&#9632;</span> {provider}: {route.label}'
+            line.options["routeLabel"] = (
+                f'<span style="color:{color}">&#9632;</span> {provider}: {route.label}'
+            )
             line.add_to(layer)
         layer.add_to(m)
 
