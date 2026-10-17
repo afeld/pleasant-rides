@@ -3,7 +3,12 @@ import os
 import httpx
 import polyline
 
+from ._labels import unique
+
 URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
+
+# https://developers.google.com/maps/documentation/routes/reference/rest/v2/TopLevel/computeRoutes#routelabel
+ROUTE_LABELS = {"DEFAULT_ROUTE": "Best route", "DEFAULT_ROUTE_ALTERNATE": "Alternate"}
 
 
 async def get_routes(origin, destination):
@@ -18,7 +23,7 @@ async def get_routes(origin, destination):
             URL,
             headers={
                 "X-Goog-Api-Key": api_key,
-                "X-Goog-FieldMask": "routes.polyline.encodedPolyline",
+                "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.routeLabels,routes.description",
             },
             json={
                 "origin": waypoint(origin),
@@ -30,7 +35,14 @@ async def get_routes(origin, destination):
         )
     response.raise_for_status()
     routes = response.json().get("routes", [])
-    return [
-        (f"Google {i}", polyline.decode(r["polyline"]["encodedPolyline"]))
-        for i, r in enumerate(routes, start=1)
-    ]
+    labels = unique(_label(r) for r in routes)
+    return [(label, polyline.decode(r["polyline"]["encodedPolyline"])) for label, r in zip(labels, routes)]
+
+
+def _label(route):
+    """e.g. "Best route via Empire State Trl", from Google's label and its summary of the main road taken."""
+    kinds = [ROUTE_LABELS[k] for k in route.get("routeLabels", []) if k in ROUTE_LABELS]
+    label = kinds[0] if kinds else "Route"
+    if route.get("description"):
+        label += f" via {route['description']}"
+    return label

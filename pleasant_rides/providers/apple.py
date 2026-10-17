@@ -3,6 +3,8 @@ import json
 import subprocess
 from pathlib import Path
 
+from ._labels import unique
+
 SOURCE = Path(__file__).with_suffix(".swift")
 BINARY = Path(__file__).parent / ".build" / "apple"
 
@@ -40,7 +42,14 @@ async def get_routes(origin, destination):
         timeout=60,
     )
     routes = json.loads(stdout)
-    return [
-        (f"Apple {i}", [tuple(p) for p in points])
-        for i, points in enumerate(routes, start=1)
-    ]
+    labels = unique(_label(r) for r in routes)
+    return [(label, [tuple(p) for p in r["points"]]) for label, r in zip(labels, routes)]
+
+
+def _label(route):
+    """e.g. 'via NY-9D (Bike paths and main roads; May require walking)'"""
+    label = f"via {route['name']}" if route["name"] else "Route"
+    advisories = [a.rstrip(".") for a in route["advisories"]]
+    if advisories:
+        label += f" ({'; '.join(advisories)})"
+    return label
