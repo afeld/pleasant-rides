@@ -62,7 +62,10 @@ def build_map(provider_routes):
 
     for idx, (provider, routes) in enumerate(provider_routes.items()):
         color = COLORS[idx % len(COLORS)]
-        layer = folium.FeatureGroup(name=provider)
+        layer = folium.FeatureGroup(
+            # Leaflet's layer control renders names as HTML, so add a color swatch
+            name=f'<span style="color:{color}; font-size:1.2em">&#9632;</span> {provider}'
+        )
         for label, points in routes:
             folium.PolyLine(
                 points, color=color, weight=5, opacity=0.8, tooltip=f"{provider}: {label}"
