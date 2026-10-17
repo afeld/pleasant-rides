@@ -22,3 +22,13 @@ dependencies = [
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# the project isn't installed as a package
+pythonpath = ["."]
