@@ -11,15 +11,21 @@ A "pleasant" bike ride is:
     - Nature
     - Good views
   - Points of interest
+- Easy
   - Avoids steep climbs/descents
+  - Avoids taking a ton of turns
+  - Smooth-ish surface
 - Safe
-  - Minimal vehicular traffic
+  - Minimal:
+    - Vehicular traffic
+    - Intersections
   - If there _are_ motor vehicles:
     - A low speed limit
     - Only 1-2 lanes
-  - Smooth-ish surface
   - Not _too_ remote
     - Theoretically walkable to somewhere you can get help if you need.
+
+A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton of time over the most direct route, either. Similarly, a pleasant route isn't necessarily the most popular one.
 
 ## See also
 
