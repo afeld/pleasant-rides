@@ -9,4 +9,5 @@ dependencies = [
     "httpx>=0.28.1",
     "ipykernel>=7.3.0",
     "polyline>=2.0.4",
+    "streamlit>=1.65.0",
 ]

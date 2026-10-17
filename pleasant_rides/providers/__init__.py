@@ -22,7 +22,7 @@ _SECRET_PARAM = re.compile(r"([?&](?:api_?)?key=)[^&\s']+", re.IGNORECASE)
 
 
 def redact(text):
-    """Strip API keys and other secrets from `text`, so they don't end up in notebook output."""
+    """Strip API keys and other secrets from `text`, so they don't end up in the app."""
     for name, value in os.environ.items():
         if name.upper().endswith(_SECRET_SUFFIXES) and value:
             text = text.replace(value, f"<{name}>")
@@ -30,11 +30,12 @@ def redact(text):
 
 
 def get_all_routes(origin, destination):
-    """Returns provider name -> routes, skipping (and reporting) providers that fail."""
+    """Returns (provider name -> routes, messages about providers that failed and were skipped)."""
     provider_routes = {}
+    skipped = []
     for name, get_routes in PROVIDERS.items():
         try:
             provider_routes[name] = get_routes(origin, destination)
         except Exception as e:  # e.g. missing API key
-            print(redact(f"{name}: skipped ({type(e).__name__}: {e})"))
-    return provider_routes
+            skipped.append(redact(f"{name}: skipped ({type(e).__name__}: {e})"))
+    return provider_routes, skipped
