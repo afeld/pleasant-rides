@@ -32,7 +32,9 @@ PLEASANT_MODEL = {
 class GraphHopper(Provider):
     """Requires a key (sign up at https://www.graphhopper.com).
 
-    `custom_model=True` applies PLEASANT_MODEL, which needs a paid plan ("flexible mode").
+    `custom_model=True` applies PLEASANT_MODEL, which needs a paid plan ("flexible mode"). The free plan also only
+    allows the "bike" profile among cycling ones, not "racingbike" or "mtb"; see
+    https://docs.graphhopper.com/openapi/map-data-and-routing-profiles.
     """
 
     name = "GraphHopper"
