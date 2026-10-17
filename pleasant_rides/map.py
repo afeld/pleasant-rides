@@ -90,9 +90,16 @@ class RouteTooltip(MacroElement):
     """
 
     _template = Template("""
+        {% macro header(this, kwargs) %}
+        <style>
+            /* larger than Leaflet's default 12px, so it's easy to read */
+            .route-tooltip { font-size: {{ this.font_size_px }}px; }
+        </style>
+        {% endmacro %}
+
         {% macro script(this, kwargs) %}
         (function (map) {
-            var tooltip = L.tooltip({ direction: "top", offset: [0, -8] });
+            var tooltip = L.tooltip({ direction: "top", offset: [0, -8], className: "route-tooltip" });
             var timer = null;
 
             function routesNear(latlng) {
@@ -132,10 +139,11 @@ class RouteTooltip(MacroElement):
         {% endmacro %}
     """)
 
-    def __init__(self, delay_ms: int = 400, tolerance: int = 8):
+    def __init__(self, delay_ms: int = 400, tolerance: int = 8, font_size_px: int = 15):
         super().__init__()
         self._name = "RouteTooltip"
         self.delay_ms = delay_ms
+        self.font_size_px = font_size_px
         # how close (in pixels) the cursor needs to be to a route
         self.tolerance = tolerance
 
