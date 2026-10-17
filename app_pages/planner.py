@@ -6,9 +6,10 @@ import streamlit.components.v1 as components
 
 from pleasant_rides.cached import fetch_routes, geocode, get_edges, get_surroundings
 from pleasant_rides.map import build_map
+from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
-from pleasant_rides.scoring import METRICS, Metric, Ride, score
+from pleasant_rides.scoring import METRICS, score
 
 st.title("Pleasant Ride Planner")
 

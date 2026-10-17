@@ -7,7 +7,7 @@ they're computed from, so that changes to the scoring take effect.
 
 import streamlit as st
 
-from . import providers, scoring, surroundings
+from . import map_matching, providers, surroundings
 from .geocode import geocode_place
 from .models import Point
 from .providers.base import Provider
@@ -34,7 +34,7 @@ async def fetch_routes(provider: Provider, origin: Point, destination: Point):
     return routes
 
 
-get_edges = st.cache_data(show_spinner=False, persist="disk")(scoring.get_edges)
+get_edges = st.cache_data(show_spinner=False, persist="disk")(map_matching.get_edges)
 get_surroundings = st.cache_data(show_spinner=False, persist="disk")(
     surroundings.get_surroundings
 )

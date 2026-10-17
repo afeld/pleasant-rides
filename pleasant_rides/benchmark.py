@@ -12,7 +12,9 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TypeVar
 
-from . import scoring, surroundings
+from . import map_matching, scoring, surroundings
+from .map_matching import Edge
+from .metrics import Ride
 from .models import Point, Route
 from .politeness import is_rate_limited, is_retryable
 from .providers import PROVIDERS, fetch_routes_timed, valhalla
@@ -20,7 +22,6 @@ from .providers.base import MissingAPIKey, Provider
 from .providers.brouter import BRouter
 from .providers.graphhopper import GraphHopper
 from .providers.valhalla import PLEASANT_OPTIONS, Valhalla
-from .scoring import Edge, Ride
 from .surroundings import Surroundings
 
 TRIPS = {
@@ -165,7 +166,7 @@ def steps(names: list[str]):
 async def run_variants(
     names: list[str],
     fetch: Fetch = fetch_routes_timed,
-    get_edges: GetEdges = scoring.get_edges,
+    get_edges: GetEdges = map_matching.get_edges,
     get_surroundings: GetSurroundings = surroundings.get_surroundings,
     on_step: Callable[[str], None] = lambda message: None,
 ):

@@ -168,7 +168,7 @@ def test_doesnt_retry_missing_api_keys():
 
 def test_map_matching_failures_are_per_route():
     async def picky(points):
-        if points[0] == list(TRIPS.values())[0][0]:
+        if points[0] == next(iter(TRIPS.values()))[0]:
             raise RuntimeError("no match")
         return [BIKE_PATH]
 

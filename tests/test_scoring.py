@@ -2,8 +2,10 @@ from typing import cast
 
 import pytest
 
+from pleasant_rides.metrics import Ride
 from pleasant_rides.models import Point
-from pleasant_rides.scoring import METRICS, Ride, Surroundings, score
+from pleasant_rides.scoring import METRICS, score
+from pleasant_rides.surroundings import Surroundings
 
 POINTS = (Point(40.0, -74.0), Point(40.01, -74.0))
 
