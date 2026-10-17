@@ -12,8 +12,9 @@ from ..models import Point, Route
 from ..providers import fetch_routes_timed, valhalla
 from ..providers.base import Provider
 from ..surroundings import Surroundings
+from ..trips import TRIPS
 from .retries import Backoffs
-from .variants import TRIPS, VARIANTS
+from .variants import VARIANTS
 
 # returns the routes and how many seconds the provider took
 Fetch = Callable[[Provider, Point, Point], Awaitable[tuple[list[Route], float]]]

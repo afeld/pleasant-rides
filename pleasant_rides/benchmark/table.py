@@ -3,8 +3,9 @@
 import statistics
 from collections.abc import Mapping
 
+from ..trips import TRIPS
 from .runner import TripResult, TripScore
-from .variants import TRIPS, VARIANTS
+from .variants import VARIANTS
 
 
 def short(trip: str):

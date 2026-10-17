@@ -5,9 +5,10 @@ import streamlit as st
 
 from pleasant_rides.benchmark.runner import run_variants, steps
 from pleasant_rides.benchmark.table import short, table_row
-from pleasant_rides.benchmark.variants import TRIPS, VARIANTS
+from pleasant_rides.benchmark.variants import VARIANTS
 from pleasant_rides.cached import fetch_routes_timed, get_edges, get_surroundings
 from pleasant_rides.providers import redact
+from pleasant_rides.trips import TRIPS
 
 st.title("Benchmark")
 st.caption(

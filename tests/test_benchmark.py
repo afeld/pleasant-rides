@@ -10,10 +10,11 @@ from pleasant_rides.benchmark.runner import (
     steps,
 )
 from pleasant_rides.benchmark.table import table_row
-from pleasant_rides.benchmark.variants import TRIPS, VARIANTS
+from pleasant_rides.benchmark.variants import VARIANTS
 from pleasant_rides.models import Point, Route
 from pleasant_rides.politeness import ProviderError
 from pleasant_rides.providers.base import MissingAPIKey
+from pleasant_rides.trips import TRIPS
 
 BIKE_PATH = {"length": 1.0, "use": "cycleway", "road_class": "service_other"}
 VALHALLA = "Valhalla (current)"

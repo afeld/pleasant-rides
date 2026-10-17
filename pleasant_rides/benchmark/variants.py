@@ -1,24 +1,10 @@
-"""The sample trips and provider variants the Benchmark page compares. Add a variant to VARIANTS to try it."""
+"""The provider variants the Benchmark page compares, on the sample trips in `trips`. Add a variant to VARIANTS to try it."""
 
-from ..models import Point
 from ..providers import PROVIDERS
 from ..providers.base import Provider
 from ..providers.brouter import BRouter
 from ..providers.graphhopper import GraphHopper
 from ..providers.valhalla import PLEASANT_OPTIONS, Valhalla
-
-TRIPS = {
-    "Long: Brooklyn→Beacon": (Point(40.6782, -73.9442), Point(41.5048, -73.9696)),
-    "Urban: Park Slope→UWS": (Point(40.6710, -73.9814), Point(40.7870, -73.9754)),
-    "Rural: Beacon→Cold Spring": (
-        Point(41.5048, -73.9696),
-        Point(41.4201, -73.9546),
-    ),
-    "Suburban: Hoboken→Montclair": (
-        Point(40.7440, -74.0324),
-        Point(40.8259, -74.2090),
-    ),
-}
 
 # the stronger penalties tried on BRouter's pleasant.brf
 STRONGER_BROUTER = {
