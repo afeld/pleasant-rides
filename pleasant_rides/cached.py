@@ -59,12 +59,15 @@ _SURROUNDINGS_CODE = hashlib.sha256(
 
 
 @st.cache_data(show_spinner=False, persist="disk")
-async def _get_surroundings(code: str, routes: Sequence[Sequence[Point]]):
-    return await surroundings.get_surroundings(routes)
+async def _get_tile(code: str, x: int, y: int, zoom: int):
+    return await surroundings.get_tile(x, y, zoom)
 
 
 async def get_surroundings(routes: Sequence[Sequence[Point]]):
-    return await _get_surroundings(_SURROUNDINGS_CODE, routes)
+    """Cached per map tile rather than per set of routes, so that routes overlapping ones seen before only fetch the tiles that are new."""
+    return await surroundings.get_surroundings(
+        routes, lambda x, y, zoom: _get_tile(_SURROUNDINGS_CODE, x, y, zoom)
+    )
 
 
 @st.cache_resource

@@ -1,13 +1,38 @@
+import asyncio
+import itertools
+
+import mercantile
+import numpy as np
 import pyarrow as pa
+import pyarrow.dataset as ds
 import shapely
 from pyproj import CRS, Transformer
 
-from pleasant_rides.surroundings import HELP_M, _bbox, _layers
+from pleasant_rides.models import Point
+from pleasant_rides.surroundings import (
+    HELP_M,
+    TILE_ZOOM,
+    Features,
+    _bbox,
+    _layers,
+    _tiles,
+    get_surroundings,
+)
+
+# Overture's IDs are unique across feature types
+_ids = itertools.count()
 
 
 def table(**columns):
-    geometries = [shapely.Point(i, i) for i in range(len(next(iter(columns.values()))))]
-    return pa.table({"geometry": shapely.to_wkb(geometries), **columns})
+    count = len(next(iter(columns.values())))
+    geometries = [shapely.Point(i, i) for i in range(count)]
+    return pa.table(
+        {
+            "id": [f"id{next(_ids)}" for _ in range(count)],
+            "geometry": shapely.to_wkb(geometries),
+            **columns,
+        }
+    )
 
 
 def test_layers():
@@ -48,23 +73,75 @@ def test_bbox_covers_help_distance():
     assert west < -74.0 < east and south < 40.0 < north
 
 
-def test_read_keeps_only_matching_features(monkeypatch):
+def test_read_keeps_only_matching_features_in_the_bbox(monkeypatch):
     from pleasant_rides import surroundings
     from pleasant_rides.surroundings import _read
 
-    roads = table(
-        **{"class": ["motorway", "residential", "primary"]}, id=["a", "b", "c"]
-    )
-    monkeypatch.setattr(
-        surroundings.core,
-        "record_batch_reader",
-        lambda *args, **kwargs: pa.RecordBatchReader.from_batches(
-            roads.schema, roads.to_batches(max_chunksize=2)
+    roads = table(**{"class": ["motorway", "residential", "primary", "primary"]})
+    # the last road is outside the bbox
+    corners = [0.1, 0.2, 0.3, 5]
+    roads = roads.append_column(
+        "bbox",
+        pa.StructArray.from_arrays(
+            [pa.array(corners)] * 4, names=["xmin", "xmax", "ymin", "ymax"]
         ),
     )
+    monkeypatch.setattr(surroundings, "_files", lambda *args: ["roads"])
+    monkeypatch.setattr(surroundings, "_dataset", lambda files: ds.dataset(roads))
     read = _read(
         "segment", (0, 0, 1, 1), ["geometry", "class"], surroundings._busy_road()
     )
     assert read is not None
     assert read.column_names == ["geometry", "class"]
     assert read["class"].to_pylist() == ["motorway", "primary"]
+
+
+def test_read_without_files(monkeypatch):
+    from pleasant_rides import surroundings
+
+    monkeypatch.setattr(surroundings, "_files", lambda *args: [])
+    assert surroundings._read("segment", (0, 0, 1, 1), ["geometry"]) is None
+
+
+def local(lats, lons):
+    crs = CRS.from_proj4(
+        f"+proj=aeqd +lat_0={np.mean(lats)} +lon_0={np.mean(lons)} +units=m"
+    )
+    return crs, Transformer.from_crs("EPSG:4326", crs, always_xy=True)
+
+
+def test_tiles_follow_the_route_rather_than_its_bounding_box():
+    # a diagonal route ~50 km across
+    route = [Point(40.6, -74.1), Point(41.0, -73.7)]
+    lats, lons = [lat for lat, _ in route], [lon for _, lon in route]
+    tiles = _tiles([route], lats, lons, *local(lats, lons))
+    box = list(
+        mercantile.tiles(*_bbox(lats, lons, *local(lats, lons)), zooms=TILE_ZOOM)
+    )
+    assert len(tiles) < len(box) / 2
+    # both ends are covered
+    for lat, lon in route:
+        assert tuple(mercantile.tile(lon, lat, TILE_ZOOM)) in tiles
+
+
+def test_features_in_several_tiles_are_only_counted_once():
+    park = shapely.box(-74.0, 40.0, -73.99, 40.01)
+    cafe = shapely.Point(-74.0, 40.0)
+
+    def features(*pairs):
+        return Features(
+            np.array([id for id, _ in pairs], dtype=object),
+            np.array([geom for _, geom in pairs], dtype=object),
+        )
+
+    async def get_tile(x, y, zoom):
+        return {
+            "green": features(("park", park)),
+            "help": features(("cafe", cafe), ("park", park)),
+        }
+
+    around = asyncio.run(
+        get_surroundings([[Point(40.0, -74.0), Point(40.2, -74.0)]], get_tile)
+    )
+    assert len(around.layers["green"]) == 1
+    assert len(around.layers["help"]) == 2

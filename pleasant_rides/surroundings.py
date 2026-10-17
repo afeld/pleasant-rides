@@ -1,18 +1,25 @@
 """What's around a set of routes, from Overture Maps: nature, water, sights, and places to get help.
 
-Overture's data lives in GeoParquet files on S3, so this downloads the features in a box around all of the routes at once, then measures each route against them locally.
+Overture's data lives in GeoParquet files on S3, so this downloads the features in the map tiles near the routes, then measures each route against them locally. Tiles (rather than one box around all the routes) keep long or diagonal routes from pulling in everything between them, and let each tile be cached on its own, so routes that overlap ones seen before only download what's new.
 """
 
 import asyncio
-from collections.abc import Sequence
+import io
+import threading
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property
 
+import httpx
+import mercantile
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
+import pyarrow.dataset as ds
+import pyarrow.parquet as pq
 import shapely
 from overturemaps import core
+from pyarrow import fs
 from pyproj import CRS, Transformer
 
 from .models import Point
@@ -71,10 +78,60 @@ QUIET_M = 50  # within earshot of heavy traffic
 
 SAMPLE_M = 20  # spacing of the points along a route that are checked
 
+# ~10 km across at the equator, ~7 km in New York; each read from Overture takes a couple of seconds however small, so smaller tiles would mean many more reads
+TILE_ZOOM = 12
+
 
 def _project(geoms: np.ndarray, transformer: Transformer):
     return shapely.transform(
         geoms, lambda xy: np.column_stack(transformer.transform(xy[:, 0], xy[:, 1]))
+    )
+
+
+# Overture's files are on S3, which handles parallel reads fine, but there are a lot of them per set of routes (a few per tile)
+_READS = threading.BoundedSemaphore(8)
+_INDEX_LOCK = threading.Lock()
+
+
+@cache
+def _stac_index(release: str):
+    """Overture's index of its files and the areas each covers. Downloaded once per release, since the overturemaps library downloads it again for every read, which gets rate-limited once there are a few tiles."""
+    response = httpx.get(
+        f"https://stac.overturemaps.org/{release}/collections.parquet", timeout=60
+    )
+    response.raise_for_status()
+    return pq.read_table(io.BytesIO(response.content))
+
+
+def _overlaps(bbox: tuple[float, ...]):
+    """Whether a row's `bbox` overlaps `bbox`, as in both Overture's index and its data."""
+    xmin, ymin, xmax, ymax = bbox
+    return (
+        (pc.field("bbox", "xmin") < xmax)
+        & (pc.field("bbox", "xmax") > xmin)
+        & (pc.field("bbox", "ymin") < ymax)
+        & (pc.field("bbox", "ymax") > ymin)
+    )
+
+
+def _files(overture_type: str, bbox: tuple[float, ...]):
+    """The S3 paths of Overture's files with features of `overture_type` in `bbox`."""
+    with _INDEX_LOCK:
+        index = _stac_index(core.get_latest_release())
+    found = index.filter(
+        (pc.field("collection") == overture_type)
+        & (pc.field("type") == "Feature")
+        & _overlaps(bbox)
+    )
+    return [
+        asset["aws"]["alternate"]["s3"]["href"].removeprefix("s3://")
+        for asset in found["assets"].to_pylist()
+    ]
+
+
+def _dataset(files: list[str]):
+    return ds.dataset(
+        files, filesystem=fs.S3FileSystem(anonymous=True, region="us-west-2")
     )
 
 
@@ -84,27 +141,53 @@ def _read(
     columns: list[str],
     keep: pc.Expression | None = None,
 ):
-    """The features in `bbox`, with only `columns`, since places have a lot of them. `keep` filters the features as they're read, so the ones that aren't needed (like all the minor roads) don't pile up in memory."""
-    reader = core.record_batch_reader(overture_type, bbox, stac=True)
-    if reader is None:
+    """The features in `bbox`, with only `columns`, since places have a lot of them. `keep` filters the features as they're read, so the ones that aren't needed (like all the minor roads) aren't kept in memory."""
+    files = _files(overture_type, bbox)
+    if not files:
         return None
-    batches = (batch.select(columns) for batch in reader)
-    if keep is not None:
-        batches = (
-            kept
-            for batch in batches
-            for kept in pa.Table.from_batches([batch]).filter(keep).to_batches()
-        )
-    return pa.Table.from_batches(
-        batches, schema=pa.schema([reader.schema.field(c) for c in columns])
-    )
+    condition = _overlaps(bbox) if keep is None else _overlaps(bbox) & keep
+    with _READS:
+        return _dataset(files).to_table(columns=columns, filter=condition)
 
 
-def _geometries(table: pa.Table | None, condition: pc.Expression):
+# a map tile, as (x, y, zoom)
+Tile = tuple[int, int, int]
+
+
+@dataclass(frozen=True)
+class Features:
+    """Overture features in (lon, lat), with their IDs, so that ones found in more than one tile are only counted once."""
+
+    ids: np.ndarray
+    geometries: np.ndarray
+
+    def __len__(self):
+        return len(self.ids)
+
+    @staticmethod
+    def combine(parts: Sequence["Features"]):
+        """The features in any of `parts`, each once."""
+        ids = np.concatenate([p.ids for p in parts])
+        geometries = np.concatenate([p.geometries for p in parts])
+        _, first = np.unique(ids, return_index=True)
+        first.sort()
+        return Features(ids[first], geometries[first])
+
+
+_NO_FEATURES = Features(np.array([], dtype=object), np.array([], dtype=object))
+
+
+def _features(table: pa.Table | None, condition: pc.Expression):
     if table is None:
-        return np.array([], dtype=object)
-    wkb = table.filter(condition)["geometry"].to_numpy(zero_copy_only=False)
-    return shapely.from_wkb(wkb)
+        return _NO_FEATURES
+    kept = table.filter(condition)
+    wkb = kept["geometry"].to_numpy(zero_copy_only=False)
+    return Features(kept["id"].to_numpy(zero_copy_only=False), shapely.from_wkb(wkb))
+
+
+def _line(points: Sequence[Point]):
+    """The route as a LineString in (lon, lat)."""
+    return shapely.LineString([(lon, lat) for lat, lon in points])
 
 
 @dataclass(frozen=True)
@@ -121,10 +204,7 @@ class Surroundings:
     def line(self, points: Sequence[Point]):
         """The route as a LineString in meters."""
         transformer = Transformer.from_crs("EPSG:4326", self.crs, always_xy=True)
-        return _project(
-            np.array([shapely.LineString([(lon, lat) for lat, lon in points])]),
-            transformer,
-        )[0]
+        return _project(np.array([_line(points)]), transformer)[0]
 
     def share_near(self, points: Sequence[Point], layer: str, distance: float):
         """The share (0-1) of the route's distance that's within `distance` meters of a feature in `layer`."""
@@ -147,8 +227,18 @@ class Surroundings:
         )
 
 
-async def get_surroundings(routes: Sequence[Sequence[Point]]):
-    """Fetches the features around `routes`, each a list of (lat, lon) points."""
+async def get_tile(x: int, y: int, zoom: int):
+    """Layer name -> the features in a map tile."""
+    return _layers(*await _read_all(tuple(mercantile.bounds(x, y, zoom))))
+
+
+GetTile = Callable[[int, int, int], Awaitable[dict[str, Features]]]
+
+
+async def get_surroundings(
+    routes: Sequence[Sequence[Point]], get_tile: GetTile = get_tile
+):
+    """Fetches the features around `routes`, each a list of (lat, lon) points, with `get_tile()`, so the tiles can be cached."""
     lats = [lat for points in routes for lat, _ in points]
     lons = [lon for points in routes for _, lon in points]
     # a local projection in meters, so distances can be measured directly
@@ -156,10 +246,41 @@ async def get_surroundings(routes: Sequence[Sequence[Point]]):
         f"+proj=aeqd +lat_0={np.mean(lats)} +lon_0={np.mean(lons)} +units=m"
     )
     to_local = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
-    layers = _layers(*await _read_all(_bbox(lats, lons, crs, to_local)))
-    return Surroundings(
-        crs, {name: _project(geoms, to_local) for name, geoms in layers.items()}
+    tiles = await asyncio.gather(
+        *(get_tile(*tile) for tile in _tiles(routes, lats, lons, crs, to_local))
     )
+    return Surroundings(
+        crs,
+        {
+            name: _project(
+                Features.combine([tile[name] for tile in tiles]).geometries, to_local
+            )
+            for name in tiles[0]
+        },
+    )
+
+
+def _tiles(
+    routes: Sequence[Sequence[Point]],
+    lats: list[float],
+    lons: list[float],
+    crs: CRS,
+    to_local: Transformer,
+) -> list[Tile]:
+    """The tiles with anything within HELP_M of any of the routes."""
+    lines = _project(np.array([_line(points) for points in routes]), to_local)
+    corridor = shapely.union_all(shapely.buffer(lines, HELP_M))
+    candidates = list(
+        mercantile.tiles(*_bbox(lats, lons, crs, to_local), zooms=TILE_ZOOM)
+    )
+    boxes = _project(
+        np.array([shapely.box(*mercantile.bounds(t)) for t in candidates]), to_local
+    )
+    return [
+        (t.x, t.y, t.z)
+        for t, near in zip(candidates, shapely.intersects(boxes, corridor))
+        if near
+    ]
 
 
 def _bbox(lats: list[float], lons: list[float], crs: CRS, to_local: Transformer):
@@ -172,18 +293,20 @@ def _bbox(lats: list[float], lons: list[float], crs: CRS, to_local: Transformer)
 
 
 async def _read_all(bbox: tuple[float, ...]):
-    """The places, land cover, land use, water, and busy roads in `bbox`, read in parallel."""
+    """The places, land cover, land use, water, and busy roads in `bbox`, read in parallel, with their IDs."""
     return await asyncio.gather(
         asyncio.to_thread(
             _read,
             "place",
             bbox,
-            ["geometry", "basic_category", "confidence", "operating_status"],
+            ["id", "geometry", "basic_category", "confidence", "operating_status"],
         ),
-        asyncio.to_thread(_read, "land_cover", bbox, ["geometry", "subtype"]),
-        asyncio.to_thread(_read, "land_use", bbox, ["geometry", "subtype"]),
-        asyncio.to_thread(_read, "water", bbox, ["geometry", "subtype", "class"]),
-        asyncio.to_thread(_read, "segment", bbox, ["geometry", "class"], _busy_road()),
+        asyncio.to_thread(_read, "land_cover", bbox, ["id", "geometry", "subtype"]),
+        asyncio.to_thread(_read, "land_use", bbox, ["id", "geometry", "subtype"]),
+        asyncio.to_thread(_read, "water", bbox, ["id", "geometry", "subtype", "class"]),
+        asyncio.to_thread(
+            _read, "segment", bbox, ["id", "geometry", "class"], _busy_road()
+        ),
     )
 
 
@@ -198,26 +321,26 @@ def _layers(
     water: pa.Table | None,
     busy_roads: pa.Table | None,
 ):
-    """Layer name -> the geometries of its features, in (lon, lat)."""
+    """Layer name -> its features."""
     open_place = (pc.field("confidence") >= MIN_CONFIDENCE) & (
         pc.field("operating_status").is_null()
         | (pc.field("operating_status") != "permanently_closed")
     )
     return {
-        "green": np.concatenate(
+        "green": Features.combine(
             [
-                _geometries(land_cover, pc.field("subtype").isin(GREEN_LAND_COVER)),
-                _geometries(land_use, pc.field("subtype").isin(GREEN_LAND_USE)),
+                _features(land_cover, pc.field("subtype").isin(GREEN_LAND_COVER)),
+                _features(land_use, pc.field("subtype").isin(GREEN_LAND_USE)),
             ]
         ),
-        "water": _geometries(
+        "water": _features(
             water,
             pc.field("subtype").isin(WATER_SUBTYPES)
             & ~pc.field("class").isin(NOT_WATER_CLASSES),
         ),
-        "sights": _geometries(
+        "sights": _features(
             places, open_place & pc.field("basic_category").isin(SIGHTS)
         ),
-        "help": _geometries(places, open_place),
-        "busy_roads": _geometries(busy_roads, _busy_road()),
+        "help": _features(places, open_place),
+        "busy_roads": _features(busy_roads, _busy_road()),
     }
