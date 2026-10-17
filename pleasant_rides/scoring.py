@@ -1,8 +1,6 @@
-"""Scores routes against the README's working definition of "pleasant", using road attributes from OpenStreetMap.
+"""Scores routes against the README's working definition of "pleasant".
 
-Each route is map-matched with Valhalla's `trace_attributes`, which returns the edges (road segments) it follows and
-the intersections between them. Most metrics are the share of the route's distance that meets a condition; turns and
-intersections are counted per km. Not covered yet: scenery, points of interest, and remoteness.
+Road attributes come from OpenStreetMap: each route is map-matched with Valhalla's `trace_attributes`, which returns the edges (road segments) it follows and the intersections between them. Scenery, points of interest, and remoteness come from Overture Maps (see `surroundings`). Most metrics are the share of the route's distance that meets a condition; turns, intersections, and sights are counted per km.
 """
 
 from collections.abc import Callable, Sequence
@@ -11,7 +9,9 @@ from typing import Any
 
 import httpx
 
+from . import surroundings
 from .models import Point
+from .surroundings import Surroundings
 
 # a road segment from Valhalla's trace_attributes
 Edge = dict[str, Any]
@@ -148,6 +148,16 @@ def _km(edges: list[Edge]):
 
 
 @dataclass(frozen=True)
+class Ride:
+    """Everything the metrics measure about a route."""
+
+    points: Sequence[Point]
+    edges: list[Edge]
+    # None if they couldn't be fetched, in which case the metrics that use them are left out
+    surroundings: Surroundings | None
+
+
+@dataclass(frozen=True)
 class Metric:
     key: str
     label: str
@@ -157,8 +167,8 @@ class Metric:
     # how the app displays it: "percent", or a printf-style format
     format: str = "%.0f"
 
-    def measure(self, edges: list[Edge]):
-        """The value shown for a map-matched route, or None if it doesn't apply."""
+    def measure(self, ride: Ride) -> float | None:
+        """The value shown for a route, or None if it doesn't apply."""
         raise NotImplementedError
 
     def score(self, value: float):
@@ -173,8 +183,8 @@ class Total(Metric):
 
     compute: Callable[[list[Edge]], float]
 
-    def measure(self, edges: list[Edge]):
-        return self.compute(edges)
+    def measure(self, ride: Ride):
+        return self.compute(ride.edges)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -185,8 +195,8 @@ class Share(Metric):
     of: Callable[[list[Edge]], list[Edge]] = lambda edges: edges
     format: str = field(default="percent", init=False)
 
-    def measure(self, edges: list[Edge]):
-        edges = self.of(edges)
+    def measure(self, ride: Ride):
+        edges = self.of(ride.edges)
         total = _km(edges)
         return _km([e for e in edges if self.condition(e)]) / total if total else None
 
@@ -200,17 +210,77 @@ class PerKm(Metric):
     half_score: float = 1
     format: str = "%.1f"
 
-    def measure(self, edges: list[Edge]):
-        km = _km(edges)
-        return self.count(edges) / km if km else None
+    def measure(self, ride: Ride):
+        km = _km(ride.edges)
+        return self.count(ride.edges) / km if km else None
 
     def score(self, value: float):
         return self.half_score / (self.half_score + value)
 
 
+@dataclass(frozen=True, kw_only=True)
+class Near(Metric):
+    """The share (0-1) of the route's distance within `distance` meters of a feature in a `layer` of its surroundings."""
+
+    layer: str
+    distance: float
+    format: str = field(default="percent", init=False)
+
+    def measure(self, ride: Ride):
+        if ride.surroundings is None:
+            return None
+        return ride.surroundings.share_near(ride.points, self.layer, self.distance)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PassesPerKm(Metric):
+    """How many features in a `layer` of the route's surroundings it passes within `distance` meters of, per km, where more is better."""
+
+    layer: str
+    distance: float
+    # the rate that scores 0.5
+    half_score: float = 1
+    format: str = "%.1f"
+
+    def measure(self, ride: Ride):
+        km = _km(ride.edges)
+        if ride.surroundings is None or not km:
+            return None
+        return ride.surroundings.count_near(ride.points, self.layer, self.distance) / km
+
+    def score(self, value: float):
+        return value / (self.half_score + value)
+
+
 # in the order they're shown, grouped as in the README
 METRICS = [
     Total("distance_km", "Distance (km)", compute=_km),
+    # enjoyable
+    Near(
+        "green",
+        "Green",
+        f"Within {surroundings.GREEN_M} m of a park, woods, grass, or wetland",
+        weight=2,
+        layer="green",
+        distance=surroundings.GREEN_M,
+    ),
+    Near(
+        "waterside",
+        "Waterside",
+        f"Within {surroundings.WATER_M} m of a river, lake, or the ocean",
+        weight=1,
+        layer="water",
+        distance=surroundings.WATER_M,
+    ),
+    PassesPerKm(
+        "sights_per_km",
+        "Sights/km",
+        f"Landmarks, museums, parks, and the like within {surroundings.SIGHT_M} m",
+        weight=1,
+        layer="sights",
+        distance=surroundings.SIGHT_M,
+        half_score=0.5,
+    ),
     # easy
     Share(
         "gentle",
@@ -274,6 +344,14 @@ METRICS = [
         condition=lambda e: e.get("lane_count", 1) <= 2,
         of=_roads,
     ),
+    Near(
+        "near_help",
+        "Near help",
+        f"Within {surroundings.HELP_M} m (a ~15 minute walk) of a business or other place",
+        weight=1,
+        layer="help",
+        distance=surroundings.HELP_M,
+    ),
     Share(
         "bike_network",
         "Bike network",
@@ -291,8 +369,8 @@ class Scorecard:
     total: float
 
 
-def score(edges: list[Edge]):
-    values = {m.key: m.measure(edges) for m in METRICS}
+def score(ride: Ride):
+    values = {m.key: m.measure(ride) for m in METRICS}
     weighted = [
         (m.score(values[m.key]), m.weight)
         for m in METRICS
@@ -300,7 +378,3 @@ def score(edges: list[Edge]):
     ]
     total = 100 * sum(s * w for s, w in weighted) / sum(w for _, w in weighted)
     return Scorecard(values, total)
-
-
-async def score_route(points: Sequence[Point]):
-    return score(await get_edges(points))
