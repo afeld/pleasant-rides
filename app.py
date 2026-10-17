@@ -7,7 +7,7 @@ import streamlit.components.v1 as components
 from pleasant_rides.geocode import geocode_place
 from pleasant_rides.map import build_map
 from pleasant_rides.providers import PROVIDERS, fetch_routes, iter_routes, redact
-from pleasant_rides.scoring import FAST_KPH, STEEP_GRADE, TURN_DEGREES, score_route
+from pleasant_rides.scoring import METRICS, Share, score_route
 
 st.set_page_config(page_title="Pleasant Rides", layout="wide")
 st.title("Pleasant Ride Planner")
@@ -91,6 +91,12 @@ async def show_routes():
     status.empty()
 
 
+def column(metric):
+    if isinstance(metric, Share):
+        return st.column_config.ProgressColumn(metric.label, help=metric.help, format=metric.format)
+    return st.column_config.NumberColumn(metric.label, help=metric.help or None, format=metric.format)
+
+
 async def show_scores(provider_routes):
     routes = all_routes(provider_routes)
     results = await asyncio.gather(
@@ -102,11 +108,13 @@ async def show_scores(provider_routes):
             st.warning(redact(f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"))
         else:
             scored.append((route, result))
-    scored.sort(key=lambda pair: pair[1]["score"], reverse=True)
+    scored.sort(key=lambda pair: pair[1].total, reverse=True)
     st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
-    rows = [{"Provider": route.provider, "Route": route.label, **metrics} for route, metrics in scored]
+    rows = [
+        {"Provider": route.provider, "Route": route.label, "score": card.total, **card.values}
+        for route, card in scored
+    ]
 
-    share = st.column_config.ProgressColumn
     st.subheader("Scores")
     st.caption("Select a row to highlight that route on the map.")
     st.dataframe(
@@ -117,25 +125,9 @@ async def show_scores(provider_routes):
         hide_index=True,
         column_config={
             "score": st.column_config.ProgressColumn("Score", format="%.0f", min_value=0, max_value=100),
-            "distance_km": st.column_config.NumberColumn("Distance (km)", format="%.0f"),
-            # easy
-            "gentle": share("Gentle", help=f"Grades under {STEEP_GRADE}%", format="percent"),
-            "climb_m": st.column_config.NumberColumn("Climb (m)", format="%.0f"),
-            "turns_per_km": st.column_config.NumberColumn("Turns/km", help=f"Changes in direction over {TURN_DEGREES}°", format="%.1f"),
-            "smooth": share("Smooth", help="Pavement, boardwalks, or crushed gravel", format="percent"),
-            "rideable": share("Rideable", help="Not stairs, footways, or the wrong way down a one-way", format="percent"),
-            # safe
-            "low_traffic": share("Low traffic", help="Off-road, separated bike lane, or not a primary/secondary road or above", format="percent"),
-            "intersections_per_km": st.column_config.NumberColumn("Intersections/km", help="With roads open to cars, other than service roads", format="%.1f"),
-            "slow": share("Slow", help=f"Speed limit under {FAST_KPH} km/h, of roads with a known limit", format="percent"),
-            "few_lanes": share("1-2 lanes", help="Of roads", format="percent"),
-            "bike_network": share("Bike network", help="On a designated bike route", format="percent"),
+            **{m.key: column(m) for m in METRICS},
         },
-        column_order=[
-            "Provider", "Route", "score", "distance_km",
-            "gentle", "climb_m", "turns_per_km", "smooth", "rideable",
-            "low_traffic", "intersections_per_km", "slow", "few_lanes", "bike_network",
-        ],
+        column_order=["Provider", "Route", "score", *(m.key for m in METRICS)],
     )
     st.caption("Scenery, points of interest, and remoteness aren't scored yet.")
 

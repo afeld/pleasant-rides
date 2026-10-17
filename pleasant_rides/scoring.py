@@ -5,6 +5,9 @@ the intersections between them. Most metrics are the share of the route's distan
 intersections are counted per km. Not covered yet: scenery, points of interest, and remoteness.
 """
 
+from dataclasses import dataclass, field
+from typing import Callable
+
 import httpx
 
 URL = "https://valhalla1.openstreetmap.de/trace_attributes"
@@ -43,23 +46,6 @@ WALKING_USES = {"steps", "footway", "pedestrian", "sidewalk"}
 FAST_KPH = 50  # ~30 mph
 STEEP_GRADE = 6  # percent
 TURN_DEGREES = 45  # a smaller change in heading between road segments is just a bend
-# for metrics counted per km, the rate that scores 0.5; fewer is better
-HALF_SCORE_TURNS_PER_KM = 1
-HALF_SCORE_INTERSECTIONS_PER_KM = 3
-
-# how much each metric counts toward the overall score, grouped as in the README; higher is better for each
-WEIGHTS = {
-    # easy
-    "gentle": 2,
-    "few_turns": 1,
-    "smooth": 1,
-    "rideable": 2,
-    # safe
-    "low_traffic": 3,
-    "few_intersections": 1,
-    "slow": 2,
-    "few_lanes": 1,
-}
 
 
 async def get_edges(points):
@@ -75,16 +61,6 @@ async def get_edges(points):
     if response.is_error:
         raise RuntimeError(f"Valhalla {response.status_code}: {response.json().get('error')}")
     return response.json()["edges"]
-
-
-def _share(edges, condition):
-    total = sum(e["length"] for e in edges)
-    return sum(e["length"] for e in edges if condition(e)) / total if total else None
-
-
-def _per_km_score(count, km, half):
-    """Turns a count per km into 0-1, where `half` per km scores 0.5 and none scores 1."""
-    return half / (half + count / km) if km else None
 
 
 def _is_low_traffic(edge):
@@ -132,34 +108,155 @@ def _climb(edges):
     return sum(max(b - a, 0) for a, b in zip(elevations, elevations[1:]))
 
 
+def _roads(edges):
+    """Only roads have speed limits and lanes."""
+    return [e for e in edges if e.get("use") not in CAR_FREE_USES]
+
+
+def _posted(edges):
+    """Roads with a known speed limit; unknown limits are left out rather than guessed."""
+    return [e for e in _roads(edges) if e.get("speed_limit")]
+
+
+def _km(edges):
+    return sum(e["length"] for e in edges)
+
+
+@dataclass(frozen=True)
+class Metric:
+    key: str
+    label: str
+    help: str = ""
+    # how much it counts toward the overall score; 0 for metrics that are only shown
+    weight: float = 0
+
+    def measure(self, edges):
+        """The value shown for a map-matched route, or None if it doesn't apply."""
+        raise NotImplementedError
+
+    def score(self, value):
+        """`value` as 0-1, higher being better."""
+        return value
+
+
+@dataclass(frozen=True)
+class Total(Metric):
+    """A number for the whole route, such as its distance."""
+
+    compute: Callable = None
+    format: str = "%.0f"
+
+    def measure(self, edges):
+        return self.compute(edges)
+
+
+@dataclass(frozen=True)
+class Share(Metric):
+    """The share (0-1) of the route's distance that meets `condition`, out of the edges that `of` selects."""
+
+    condition: Callable = None
+    of: Callable = lambda edges: edges
+    format: str = field(default="percent", init=False)
+
+    def measure(self, edges):
+        edges = self.of(edges)
+        total = _km(edges)
+        return _km([e for e in edges if self.condition(e)]) / total if total else None
+
+
+@dataclass(frozen=True)
+class PerKm(Metric):
+    """How many times something happens per km, where fewer is better."""
+
+    count: Callable = None
+    # the rate that scores 0.5
+    half_score: float = 1
+    format: str = "%.1f"
+
+    def measure(self, edges):
+        km = _km(edges)
+        return self.count(edges) / km if km else None
+
+    def score(self, value):
+        return self.half_score / (self.half_score + value)
+
+
+# in the order they're shown, grouped as in the README
+METRICS = [
+    Total("distance_km", "Distance (km)", compute=_km),
+    # easy
+    Share(
+        "gentle",
+        "Gentle",
+        f"Grades under {STEEP_GRADE}%",
+        weight=2,
+        condition=lambda e: e.get("max_upward_grade", 0) < STEEP_GRADE,
+    ),
+    Total("climb_m", "Climb (m)", compute=_climb),
+    PerKm(
+        "turns_per_km",
+        "Turns/km",
+        f"Changes in direction over {TURN_DEGREES}°",
+        weight=1,
+        count=_turns,
+        half_score=1,
+    ),
+    Share(
+        "smooth",
+        "Smooth",
+        "Pavement, boardwalks, or crushed gravel",
+        weight=1,
+        condition=lambda e: e.get("surface") not in ROUGH_SURFACES,
+    ),
+    Share(
+        "rideable",
+        "Rideable",
+        "Not stairs, footways, or the wrong way down a one-way",
+        weight=2,
+        condition=lambda e: not _is_walking(e),
+    ),
+    # safe
+    Share(
+        "low_traffic",
+        "Low traffic",
+        "Off-road, separated bike lane, or not a primary/secondary road or above",
+        weight=3,
+        condition=_is_low_traffic,
+    ),
+    PerKm(
+        "intersections_per_km",
+        "Intersections/km",
+        "With roads open to cars, other than service roads",
+        weight=1,
+        count=_intersections,
+        half_score=3,
+    ),
+    Share(
+        "slow",
+        "Slow",
+        f"Speed limit under {FAST_KPH} km/h, of roads with a known limit",
+        weight=2,
+        condition=lambda e: e["speed_limit"] < FAST_KPH,
+        of=_posted,
+    ),
+    Share("few_lanes", "1-2 lanes", "Of roads", weight=1, condition=lambda e: e.get("lane_count", 1) <= 2, of=_roads),
+    Share("bike_network", "Bike network", "On a designated bike route", condition=lambda e: bool(e.get("bicycle_network"))),
+]
+
+
+@dataclass(frozen=True)
+class Scorecard:
+    # metric key -> measured value (None if it doesn't apply)
+    values: dict
+    # 0-100, the weighted average of the metrics' scores
+    total: float
+
+
 def score(edges):
-    """Returns metrics for a map-matched route (0-1, higher is better, unless named otherwise), plus a 0-100 score."""
-    km = sum(e["length"] for e in edges)
-    # only roads have speed limits and lanes; unknown speed limits are left out rather than guessed
-    roads = [e for e in edges if e.get("use") not in CAR_FREE_USES]
-    posted = [e for e in roads if e.get("speed_limit")]
-    turns = _turns(edges)
-    intersections = _intersections(edges)
-    metrics = {
-        "distance_km": km,
-        # easy
-        "gentle": _share(edges, lambda e: e.get("max_upward_grade", 0) < STEEP_GRADE),
-        "climb_m": _climb(edges),
-        "few_turns": _per_km_score(turns, km, HALF_SCORE_TURNS_PER_KM),
-        "turns_per_km": turns / km if km else None,
-        "smooth": _share(edges, lambda e: e.get("surface") not in ROUGH_SURFACES),
-        "rideable": _share(edges, lambda e: not _is_walking(e)),
-        # safe
-        "low_traffic": _share(edges, _is_low_traffic),
-        "few_intersections": _per_km_score(intersections, km, HALF_SCORE_INTERSECTIONS_PER_KM),
-        "intersections_per_km": intersections / km if km else None,
-        "slow": _share(posted, lambda e: e["speed_limit"] < FAST_KPH) if posted else None,
-        "few_lanes": _share(roads, lambda e: e.get("lane_count", 1) <= 2) if roads else 1.0,
-        "bike_network": _share(edges, lambda e: bool(e.get("bicycle_network"))),
-    }
-    scored = {k: w for k, w in WEIGHTS.items() if metrics[k] is not None}
-    metrics["score"] = 100 * sum(metrics[k] * w for k, w in scored.items()) / sum(scored.values())
-    return metrics
+    values = {m.key: m.measure(edges) for m in METRICS}
+    weighted = [(m.score(values[m.key]), m.weight) for m in METRICS if m.weight and values[m.key] is not None]
+    total = 100 * sum(s * w for s, w in weighted) / sum(w for _, w in weighted)
+    return Scorecard(values, total)
 
 
 async def score_route(points):
