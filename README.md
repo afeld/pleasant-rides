@@ -73,7 +73,7 @@ BRouter's public server is free but busy: long routes sometimes get killed, and 
 1. Start it:
 
    ```sh
-   docker compose up -d
+   docker compose up
    ```
 
    The first time, this builds BRouter from source and downloads its routing data for the area around New York City (~120 MB), which takes a minute or two. After that it starts in a few seconds. For other areas, set `BROUTER_TILES` to [tiles](https://brouter.de/brouter/segments4/) separated by spaces, e.g. `BROUTER_TILES="W75_N40 W80_N40"`.
