@@ -11,7 +11,7 @@ from typing import TypeVar
 
 import streamlit as st
 
-from . import map_matching, overture, providers, surroundings
+from . import bike_lanes, map_matching, overture, providers, surroundings
 from .geocode import geocode_place
 from .models import Point
 from .politeness import ProviderError, is_permanent
@@ -106,3 +106,46 @@ async def _unless_failed(key: tuple, call: Callable[[], Awaitable[T]]) -> T:
         if is_permanent(e):
             failures[key] = str(e)
         raise
+
+
+_osm_bike_lanes = st.cache_data(
+    show_spinner="Fetching OpenStreetMap's bike lanes…", persist="disk"
+)(bike_lanes.fetch_osm)
+_nyc_bike_lanes = st.cache_data(
+    show_spinner="Fetching NYC Open Data's bike lanes…", persist="disk"
+)(bike_lanes.fetch_nyc)
+_nyc_boundary = st.cache_data(show_spinner=False, persist="disk")(
+    bike_lanes.fetch_boundary
+)
+# keyed by the code that categorizes the segments too (see _OVERTURE_CODE), since it filters them as they're read
+_BIKE_LANES_CODE = hashlib.sha256(inspect.getsource(bike_lanes).encode()).hexdigest()
+
+
+@st.cache_data(show_spinner="Reading Overture's bike lanes…", persist="disk")
+def _overture_bike_lanes(code: str, release: str):
+    return bike_lanes.fetch_overture(release, _nyc_boundary())
+
+
+@st.cache_resource(show_spinner="Comparing bike lanes…", max_entries=2)
+def _compare_bike_lanes(code: str, release: str):
+    osm, osm_as_of = bike_lanes.parse_osm(_osm_bike_lanes())
+    nyc_data, nyc_as_of = _nyc_bike_lanes()
+    lanes = {
+        bike_lanes.OSM: osm,
+        bike_lanes.OVERTURE: _overture_bike_lanes(code, release),
+        bike_lanes.NYC: bike_lanes.parse_nyc(nyc_data),
+    }
+    as_of = {
+        bike_lanes.OSM: osm_as_of,
+        bike_lanes.OVERTURE: f"release {release}",
+        bike_lanes.NYC: nyc_as_of,
+    }
+    compared = bike_lanes.compare(lanes)
+    for frame in compared.values():
+        frame["path"] = bike_lanes.map_paths(frame)
+    return compared, as_of
+
+
+def compare_bike_lanes():
+    """Source -> its NYC bike lanes, compared with the other sources' (see `bike_lanes.compare()`), with a `path` for mapping; and source -> when its data is from. Kept in memory as they are (like the Overture tiles), since they're only read. The sources' data is cached on disk: OpenStreetMap's and NYC Open Data's until "Clear cache", and Overture's per release."""
+    return _compare_bike_lanes(_BIKE_LANES_CODE, _latest_release())
