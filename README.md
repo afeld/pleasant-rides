@@ -2,6 +2,10 @@
 
 Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn't always desirable. This repository is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.
 
+![screenshot of analysis page](analysis.png)
+
+There isn't a public instance of the app/analysis at this point - see [Running](#running) to get it working on your computer.
+
 ## Working definition
 
 A "pleasant" bike ride is:
