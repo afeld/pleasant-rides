@@ -1,3 +1,4 @@
+import altair as alt
 import pandas as pd
 import pydeck as pdk
 import streamlit as st
@@ -54,15 +55,42 @@ category = st.segmented_control(
     help="Only counts the lanes of this type in each row's source. The other sources' lanes can be of any type.",
 )
 st.caption("How much of each row's source's lanes each column's source also has.")
-st.dataframe(
-    bike_lanes.overlap(compared, None if category in (None, "All") else category) * 100,
-    column_config={
-        source: st.column_config.ProgressColumn(
-            source, format="%.0f%%", min_value=0, max_value=100
+overlap = (
+    bike_lanes.overlap(compared, None if category in (None, "All") else category)
+    .rename_axis(index="source")
+    .reset_index()
+    .melt(id_vars="source", var_name="other", value_name="share")
+    # each source against itself, and types a source has none of
+    .dropna()
+)
+order = list(compared)
+cells = alt.Chart(overlap).encode(
+    x=alt.X("other:N", title="Also in", sort=order, axis=alt.Axis(labelAngle=0)),
+    y=alt.Y("source:N", title="Lanes in", sort=order),
+    tooltip=[
+        alt.Tooltip("source:N", title="Lanes in"),
+        alt.Tooltip("other:N", title="Also in"),
+        alt.Tooltip("share:Q", title="Share", format=".0%"),
+    ],
+)
+st.altair_chart(
+    cells.mark_rect().encode(
+        color=alt.Color(
+            "share:Q",
+            title=None,
+            scale=alt.Scale(scheme="blues", domain=[0, 1]),
+            legend=alt.Legend(format="%"),
         )
-        for source in compared
-    },
-    alt="Share of each source's bike lanes that each other source also has",
+    )
+    + cells.mark_text(fontSize=16).encode(
+        text=alt.Text("share:Q", format=".0%"),
+        # dark text on the light cells, light text on the dark ones
+        color=alt.condition(
+            alt.datum.share > 0.6, alt.value("white"), alt.value("black")
+        ),
+    ),
+    height=250,
+    alt="Heatmap of the share of each source's bike lanes that each other source also has",
 )
 
 st.subheader("Map")
