@@ -1,5 +1,4 @@
-# A local BRouter server (https://github.com/abrensch/brouter), so routing doesn't depend on the busy public one. See
-# "Local BRouter" in the README. Its data lives in named volumes, so `docker compose down -v` wipes everything.
+# A local BRouter server (https://github.com/abrensch/brouter), so routing doesn't depend on the busy public one. See "Local BRouter" in the README. Its data lives in named volumes, so `docker compose down -v` wipes everything.
 name: pleasant-rides
 
 services:
@@ -11,8 +10,7 @@ services:
       - segments:/segments4
       - profiles:/profiles2
     environment:
-      # 5x5° tiles, named for their southwest corner; W75_N40 covers all of the sample trips (lon -75 to -70, lat 40 to
-      # 45). See https://brouter.de/brouter/segments4/ for others.
+      # 5x5° tiles, named for their southwest corner; W75_N40 covers all of the sample trips (lon -75 to -70, lat 40 to 45). See https://brouter.de/brouter/segments4/ for others.
       TILES: ${BROUTER_TILES:-W75_N40}
     entrypoint:
       - sh
@@ -27,8 +25,7 @@ services:
           fi
         }
         for tile in $$TILES; do get segments4/$$tile.rd5; done
-        # all of the public server's profiles, since the server only comes with some (e.g. not quaelnix-gravel), and
-        # its lookups.dat, which goes with its segments
+        # all of the public server's profiles, since the server only comes with some (e.g. not quaelnix-gravel), and its lookups.dat, which goes with its segments
         get profiles2/lookups.dat
         for profile in $$(curl -fsSL https://brouter.de/brouter/profiles2/ | grep -o '[A-Za-z0-9_.-]*\.brf' | sort -u); do
           get profiles2/$$profile
