@@ -128,7 +128,8 @@ def _overture_bike_lanes(code: str, release: str):
 
 @st.cache_resource(show_spinner="Comparing bike lanes…", max_entries=2)
 def _compare_bike_lanes(code: str, release: str):
-    osm, osm_as_of = bike_lanes.parse_osm(_osm_bike_lanes())
+    # the query is passed in, so that changing it refetches, since Streamlit's cache key only covers the function's own code
+    osm, osm_as_of = bike_lanes.parse_osm(_osm_bike_lanes(bike_lanes.OVERPASS_QUERY))
     nyc_data, nyc_as_of = _nyc_bike_lanes()
     lanes = {
         bike_lanes.OSM: osm,

@@ -141,6 +141,8 @@ def layer(source: str):
             "category": frame["category"],
             "name": frame["name"].fillna("(unnamed)"),
             "also_in": also_in(frame, others),
+            # only OpenStreetMap says when each lane was last edited. Deck.gl escapes HTML in the values, so this goes on the category's line rather than its own.
+            "edited": (", last edited " + frame["updated"].str[:10]).fillna(""),
         }
     )
     return pdk.Layer(
@@ -170,7 +172,9 @@ st.pydeck_chart(
         initial_view_state=pdk.ViewState(latitude=40.71, longitude=-73.95, zoom=10.5),
         # Streamlit's default, a light or dark base map to match the app's theme; pydeck's type hints don't allow it, or a template for the tooltip
         map_style=None,  # pyright: ignore[reportArgumentType]
-        tooltip={"html": "<b>{source}</b>: {category}<br>{name}<br>Also in: {also_in}"},  # pyright: ignore[reportArgumentType]
+        tooltip={
+            "html": "<b>{source}</b>: {category}{edited}<br>{name}<br>Also in: {also_in}"
+        },  # pyright: ignore[reportArgumentType]
     ),
     height=700,
     alt="Map of New York City's bike lanes in each source",

@@ -54,7 +54,7 @@ area["wikidata"="{NYC_WIKIDATA}"]["boundary"="administrative"]->.nyc;
   way["highway"]["cycleway:left"~"^({_LANE_VALUES})$"](area.nyc);
   way["highway"]["cycleway:right"~"^({_LANE_VALUES})$"](area.nyc);
 );
-out tags geom;
+out meta geom;
 """
 
 # OpenStreetMap highway values / Overture classes that are paths rather than roads
@@ -64,11 +64,11 @@ NYC_FACILITY_CLASSES = {"I": PROTECTED, "II": PAINTED, "III": SHARED, "L": CONNE
 
 
 def _frame(rows: list[dict], geometries: list):
-    """A GeoDataFrame of lanes, with an `id`, `name`, `category`, and `geometry`, in lat/lon."""
-    columns = ["id", "name", "category"]
-    return gpd.GeoDataFrame(
-        pd.DataFrame(rows, columns=columns), geometry=geometries, crs="EPSG:4326"
-    )
+    """A GeoDataFrame of lanes, with an `id`, `name`, `category`, when it was last `updated` (if the source says), and `geometry`, in lat/lon."""
+    columns = ["id", "name", "category", "updated"]
+    # strings even when there are none, rather than whatever pandas would infer from all Nones
+    frame = pd.DataFrame(rows, columns=columns).astype("string")
+    return gpd.GeoDataFrame(frame, geometry=geometries, crs="EPSG:4326")
 
 
 def osm_category(tags: dict[str, str]):
@@ -95,13 +95,11 @@ def osm_category(tags: dict[str, str]):
     return None
 
 
-def fetch_osm():
+def fetch_osm(query: str = OVERPASS_QUERY):
     """The city's bike infrastructure in OpenStreetMap, from the Overpass API, as it returns it, so that changing how it's categorized doesn't need a refetch."""
     for server in OVERPASS_SERVERS:
         try:
-            response = http_client.post(
-                server, data={"data": OVERPASS_QUERY}, timeout=330
-            )
+            response = http_client.post(server, data={"data": query}, timeout=330)
             response.raise_for_status()
             return response.json()
         except Exception as e:
@@ -121,7 +119,13 @@ def parse_osm(data: dict):
         if category is None or len(way.get("geometry", [])) < 2:
             continue
         rows.append(
-            {"id": f"way/{way['id']}", "name": tags.get("name"), "category": category}
+            {
+                "id": f"way/{way['id']}",
+                "name": tags.get("name"),
+                "category": category,
+                # when the way was last edited
+                "updated": way.get("timestamp"),
+            }
         )
         geometries.append(
             shapely.LineString([(node["lon"], node["lat"]) for node in way["geometry"]])
