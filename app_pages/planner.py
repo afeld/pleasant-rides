@@ -2,7 +2,6 @@ import asyncio
 import time
 
 import streamlit as st
-import streamlit.components.v1 as components
 
 from pleasant_rides.cached import fetch_routes, geocode, get_edges, get_surroundings
 from pleasant_rides.map import build_map
@@ -70,8 +69,10 @@ def draw_map(provider_routes: dict[str, list[Route]]):
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
         with map_placeholder:
-            components.html(
-                build_map(routes, highlight).get_root().render(), height=MAP_HEIGHT
+            st.iframe(
+                build_map(routes, highlight).get_root().render(),
+                height=MAP_HEIGHT,
+                alt="Map of the routes",
             )
 
 
