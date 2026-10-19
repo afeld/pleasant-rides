@@ -54,6 +54,7 @@ def test_parse_osm():
             {
                 "id": 1,
                 "tags": {"highway": "cycleway", "name": "Hudson River Greenway"},
+                "timestamp": "2025-06-01T12:00:00Z",
                 "geometry": [{"lat": 40.7, "lon": -74.0}, {"lat": 40.71, "lon": -74.0}],
             },
             {
@@ -67,6 +68,7 @@ def test_parse_osm():
     assert as_of == "2026-01-01T00:00:00Z"
     assert lanes["id"].tolist() == ["way/1"]
     assert lanes["category"].tolist() == [b.PROTECTED]
+    assert lanes["updated"].tolist() == ["2025-06-01T12:00:00Z"]
 
 
 def test_parse_nyc():
