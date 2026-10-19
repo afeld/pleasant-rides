@@ -15,3 +15,8 @@ def client(**kwargs):
 def get(url: str, **kwargs):
     """httpx.get(), sending the app's User-Agent."""
     return httpx.get(url, headers=HEADERS, **kwargs)
+
+
+def post(url: str, **kwargs):
+    """httpx.post(), sending the app's User-Agent."""
+    return httpx.post(url, headers=HEADERS, **kwargs)
