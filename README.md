@@ -56,7 +56,7 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    CYCLEMATE_API_KEY=...
    ```
 
-   Valhalla and BRouter use public servers and don't need keys. The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs. Scoring also uses Valhalla's public server, plus [Overture Maps](https://overturemaps.org/) data for scenery, points of interest, and remoteness, which is downloaded from its public S3 bucket.
+   Valhalla and BRouter use public servers and don't need keys (or run BRouter yourself; see [Local BRouter](#local-brouter)). The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs. Scoring also uses Valhalla's public server, plus [Overture Maps](https://overturemaps.org/) data for scenery, points of interest, and remoteness, which is downloaded from its public S3 bucket.
 
 1. Start the app:
 
@@ -65,6 +65,28 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    ```
 
    It opens at http://localhost:8501. The app reruns when you save `app.py`, its pages under `app_pages/`, or anything under `pleasant_rides/`. Routes are cached to disk (in `~/.streamlit/cache`) per provider (and its settings) and origin/destination, so they're kept across restarts. To refetch them, use "Clear cache" from the app's ⋮ menu.
+
+## Local BRouter
+
+BRouter's public server is free but busy: long routes sometimes get killed, and the app waits between requests to be polite. To run your own in [Docker](https://docs.docker.com/get-started/get-docker/):
+
+1. Start it:
+
+   ```sh
+   docker compose up
+   ```
+
+   The first time, this builds BRouter from source and downloads its routing data for the area around New York City (~120 MB), which takes a minute or two. After that it starts in a few seconds. For other areas, set `BROUTER_TILES` to [tiles](https://brouter.de/brouter/segments4/) separated by spaces, e.g. `BROUTER_TILES="W75_N40 W80_N40"`.
+
+1. Add this to your `.env`:
+
+   ```sh
+   BROUTER_URL=http://localhost:17777/brouter
+   ```
+
+   Routes from it are cached separately from the public server's.
+
+To stop it, run `docker compose down`. To wipe it, including the downloaded data (e.g. to get fresh data, which the public server updates weekly), run `docker compose down -v --rmi all`.
 
 ## Benchmarking
 

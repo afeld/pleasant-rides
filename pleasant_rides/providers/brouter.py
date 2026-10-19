@@ -1,4 +1,5 @@
 import hashlib
+import os
 from pathlib import Path
 
 import httpx
@@ -8,7 +9,7 @@ from ..models import Point
 from ..politeness import ProviderError
 from .base import Provider
 
-URL = "https://brouter.de/brouter"
+PUBLIC_URL = "https://brouter.de/brouter"
 
 # what the app uses: quaelnix-gravel (https://brouter.de/brouter/profiles2/quaelnix-gravel.brf), with its switches for considering traffic, preferring cycle routes, and avoiding steep inclines on. On the Benchmark page's sample trips it averaged 78.4, vs. 78.0 for pleasant.brf. Also turning on its preference for quiet areas (78.1; up to 77.9 when avoiding noise more strongly with quiet.brf), rivers (77.6), or forests (76.8) scored lower; the variants in benchmark/variants.py are the alternatives tried.
 DEFAULT_PROFILE = "quaelnix-gravel"
@@ -24,8 +25,8 @@ PLEASANT_PROFILE = Path(__file__).with_name("pleasant.brf")
 # quaelnix-gravel with the default parameters, avoiding noisy areas (roads close to busy ones), with `noise_strength` to scale how strongly; see the file
 QUIET_PROFILE = Path(__file__).with_name("quiet.brf")
 
-# a local profile's contents (as `_digest()`) -> the ID the server gave it when uploaded, so each version is only uploaded once. The server deletes uploaded profiles eventually (then answering with an empty 500), so an ID is forgotten whenever a request using it fails, and the profile gets uploaded again on the next try.
-_uploaded: dict[str, str] = {}
+# (server URL, a local profile's contents as `_digest()`) -> the ID the server gave it when uploaded, so each version is only uploaded once. The server deletes uploaded profiles eventually (then answering with an empty 500), so an ID is forgotten whenever a request using it fails, and the profile gets uploaded again on the next try.
+_uploaded: dict[tuple[str, str], str] = {}
 
 
 def _digest(profile: Path):
@@ -34,14 +35,16 @@ def _digest(profile: Path):
 
 class BRouter(Provider):
     name = "BRouter"
-    # a free public server
-    request_interval_s = 2
 
     # `profile` is one of the public server's profiles, listed at https://brouter.de/brouter/profiles2/, or a local .brf file. `params` overrides the profile's `assign` variables for a request, e.g. {"consider_traffic": 0.5}; without it, the default profile gets DEFAULT_PARAMS, and others none.
     def __init__(
         self, profile: str | Path = DEFAULT_PROFILE, params: dict | None = None
     ):
         self.profile = profile
+        # BROUTER_URL points at another server, e.g. a local one (see compose.yaml); it's part of the cache key, since servers' segments differ
+        self.url = os.environ.get("BROUTER_URL") or PUBLIC_URL
+        # the public server is free, so be polite to it
+        self.request_interval_s = 2 if self.url == PUBLIC_URL else 0
         if params is None:
             params = DEFAULT_PARAMS if profile == DEFAULT_PROFILE else {}
         self.params = params
@@ -57,10 +60,10 @@ class BRouter(Provider):
     async def _profile_id(self, client: httpx.AsyncClient):
         if not isinstance(self.profile, Path):
             return self.profile
-        digest = _digest(self.profile)
-        if digest not in _uploaded:
-            _uploaded[digest] = await _upload(client, self.profile)
-        return _uploaded[digest]
+        key = (self.url, _digest(self.profile))
+        if key not in _uploaded:
+            _uploaded[key] = await _upload(client, self.url, self.profile)
+        return _uploaded[key]
 
     @property
     def profile_name(self):
@@ -78,7 +81,7 @@ class BRouter(Provider):
         # https://github.com/abrensch/brouter/blob/master/docs/developers/http_server.md
         async with http_client.client() as client:
             response = await client.get(
-                URL,
+                self.url,
                 params={
                     "lonlats": f"{origin.lon},{origin.lat}|{destination.lon},{destination.lat}",
                     "profile": await self._profile_id(client),
@@ -90,7 +93,7 @@ class BRouter(Provider):
             )
         if response.is_error:
             if isinstance(self.profile, Path):
-                _uploaded.pop(_digest(self.profile), None)
+                _uploaded.pop((self.url, _digest(self.profile)), None)
             raise _error(response)
         feature = response.json()["features"][0]
         # GeoJSON coordinates are [lon, lat(, elevation)]
@@ -98,10 +101,10 @@ class BRouter(Provider):
         return [(f"BRouter ({self.profile_name})", points)]
 
 
-async def _upload(client: httpx.AsyncClient, profile: Path):
+async def _upload(client: httpx.AsyncClient, url: str, profile: Path):
     """Returns the ID the server gives the profile."""
     response = await client.post(
-        f"{URL}/profile", content=profile.read_text(), timeout=30.0
+        f"{url}/profile", content=profile.read_text(), timeout=30.0
     )
     body = response.json()
     if response.is_error or "error" in body:

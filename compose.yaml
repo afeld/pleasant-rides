@@ -1,0 +1,57 @@
+# A local BRouter server (https://github.com/abrensch/brouter), so routing doesn't depend on the busy public one. See "Local BRouter" in the README. Its data lives in named volumes, so `docker compose down -v` wipes everything.
+name: pleasant-rides
+
+services:
+  # downloads the segments (routing data) and profiles from the public server the first time, then exits
+  data:
+    image: curlimages/curl:8.10.1
+    user: root
+    volumes:
+      - segments:/segments4
+      - profiles:/profiles2
+    environment:
+      # 5x5° tiles, named for their southwest corner; W75_N40 covers all of the sample trips (lon -75 to -70, lat 40 to 45). See https://brouter.de/brouter/segments4/ for others.
+      TILES: ${BROUTER_TILES:-W75_N40}
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        # $$1: a file under https://brouter.de/brouter/, downloaded to /$$1 unless it's there already
+        get() {
+          if [ ! -f /$$1 ]; then
+            echo "downloading $$1"
+            curl -fsSL -o /$$1.part https://brouter.de/brouter/$$1
+            mv /$$1.part /$$1
+          fi
+        }
+        for tile in $$TILES; do get segments4/$$tile.rd5; done
+        # all of the public server's profiles, since the server only comes with some (e.g. not quaelnix-gravel), and its lookups.dat, which goes with its segments
+        get profiles2/lookups.dat
+        for profile in $$(curl -fsSL https://brouter.de/brouter/profiles2/ | grep -o '[A-Za-z0-9_.-]*\.brf' | sort -u); do
+          get profiles2/$$profile
+        done
+        # where uploaded profiles go (see brouter below), writable by the server's user
+        mkdir -p /profiles2/customprofiles
+        chown 1000:1000 /profiles2/customprofiles
+
+  brouter:
+    # built from a release, since the published release images (ghcr.io/abrensch/brouter) lag behind and are amd64-only
+    build: https://github.com/abrensch/brouter.git#v1.7.10
+    depends_on:
+      data:
+        condition: service_completed_successfully
+    volumes:
+      - segments:/segments4:ro
+      - profiles:/profiles2
+    ports:
+      - 127.0.0.1:17777:17777
+    environment:
+      # for uploaded profiles; the server takes it as relative to /profiles2, whatever it is
+      CUSTOMPROFILESPATH: customprofiles
+      MAXTHREADS: 4
+      # more memory and time than the defaults, for long routes
+      JAVA_OPTS: -Xmx1G -Xms256M -DmaxRunningTime=300 -DuseRFCMimeType=false
+
+volumes:
+  segments:
+  profiles:
