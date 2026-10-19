@@ -165,11 +165,20 @@ st.markdown(
     ),
     unsafe_allow_html=True,
 )
+west, south, east, north = bike_lanes.NYC_BBOX
 st.pydeck_chart(
     pdk.Deck(
         # NYC Open Data, then OpenStreetMap, then Overture on top, so the sources with fewer lanes aren't hidden under the others
         layers=[layer(source) for source in reversed(compared) if source in sources],
-        initial_view_state=pdk.ViewState(latitude=40.71, longitude=-73.95, zoom=10.5),
+        initial_view_state=pdk.ViewState(
+            latitude=40.71,
+            longitude=-73.95,
+            zoom=10.5,
+            # keep the map on the city, a bit past the area the lanes are read from
+            max_bounds=[[west - 0.05, south - 0.05], [east + 0.05, north + 0.05]],
+            min_zoom=9.5,
+            max_zoom=18,
+        ),
         # Streamlit's default, a light or dark base map to match the app's theme; pydeck's type hints don't allow it, or a template for the tooltip
         map_style=None,  # pyright: ignore[reportArgumentType]
         tooltip={
