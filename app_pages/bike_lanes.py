@@ -33,6 +33,13 @@ with st.container(horizontal=True):
             help=f"Data as of {as_of[source]}",
             border=True,
         )
+st.caption(
+    "How fresh each source is: OpenStreetMap is edited continuously, and the Overpass API has edits within minutes. "
+    "Overture puts out a [new release](https://docs.overturemaps.org/release-calendar/) monthly. "
+    "NYC DOT lists its dataset as updated annually. "
+    "This page keeps OpenStreetMap's and NYC Open Data's data until you use \"Clear cache\" from the ⋮ menu, and switches to each new Overture release within a day. "
+    "Hover over the ? on each total to see the date of its data."
+)
 
 st.subheader("Length by type")
 st.caption(
