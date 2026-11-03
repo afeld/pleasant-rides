@@ -22,8 +22,12 @@ def custom_trip():
     # a form, so that editing a field doesn't trigger a rerun (and a round of API calls) on its own
     with st.form("route"):
         col1, col2 = st.columns(2)
-        origin = col1.text_input("Origin", "Brooklyn, NY")
-        destination = col2.text_input("Destination", "Beacon, NY")
+        origin = col1.text_input(
+            "Origin", "Brooklyn, NY", key="origin", bind="query-params"
+        )
+        destination = col2.text_input(
+            "Destination", "Beacon, NY", key="destination", bind="query-params"
+        )
         st.form_submit_button("Route")
     try:
         return geocode(origin), geocode(destination)
@@ -36,6 +40,9 @@ trip = st.selectbox(
     "Trip",
     [*TRIPS, CUSTOM_TRIP],
     help="The sample trips from the Benchmark page, or your own",
+    # so that the URL links to the trip
+    key="trip",
+    bind="query-params",
 )
 origin_point, destination_point = custom_trip() if trip == CUSTOM_TRIP else TRIPS[trip]
 
