@@ -1,9 +1,12 @@
-# The app's Google Cloud project: the APIs it uses and its Maps key. See "Deploying" in the README.
+# The app's Google Cloud project (the APIs it uses and its Maps key) and its DNS record. See "Deploying" in the README.
 
 terraform {
   required_providers {
     google = {
       source = "hashicorp/google"
+    }
+    cloudflare = {
+      source = "cloudflare/cloudflare"
     }
   }
 }

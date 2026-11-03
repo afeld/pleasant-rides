@@ -90,9 +90,9 @@ To stop it, run `docker compose down`. To wipe it, including the downloaded data
 
 ## Deploying
 
-The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. Deployed copies require signing in with Google, and only emails in an allowlist get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) is managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
+The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. Deployed copies require signing in with Google, and only emails in an allowlist get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
 
-1. Apply the Google Cloud config, signed in to gcloud as an owner of the project (`--no-activate` leaves your other gcloud configurations alone):
+1. Apply the Terraform config, signed in to gcloud as an owner of the project (`--no-activate` leaves your other gcloud configurations alone):
 
    ```sh
    gcloud auth login --no-activate <your Google account>
@@ -100,6 +100,12 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
 
    ```sh
    export GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token <your Google account>)
+   ```
+
+   For the DNS record, [create a Cloudflare API token](https://dash.cloudflare.com/profile/api-tokens) with the "Edit zone DNS" template, limited to the `afeld.me` zone:
+
+   ```sh
+   export CLOUDFLARE_API_TOKEN=<token>
    ```
 
    Terraform needs two APIs turned on before it can manage the rest, so turn those on with gcloud:
@@ -116,14 +122,14 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
 
 1. In the [Google Auth Platform](https://console.cloud.google.com/auth/overview?project=pleasant-rides):
    1. Under Audience, choose External, leave it in Testing, and add the people who should have access as test users. Testing mode only lets test users sign in, which is a second allowlist.
-   1. Under Clients, create a Web application client with the authorized redirect URI `https://pleasant-rides.fly.dev/oauth2callback`.
+   1. Under Clients, create a Web application client with the authorized redirect URI `https://pleasant-rides.afeld.me/oauth2callback`.
 1. Create `.streamlit/secrets.toml` (ignored by Git) with the client's ID and secret and the allowlist:
 
    ```toml
    allowed_emails = ["someone@example.com"]
 
    [auth]
-   redirect_uri = "https://pleasant-rides.fly.dev/oauth2callback"
+   redirect_uri = "https://pleasant-rides.afeld.me/oauth2callback"
    cookie_secret = "<a long random string, e.g. from `openssl rand -hex 32`>"
    client_id = "<client ID>"
    client_secret = "<client secret>"
@@ -136,6 +142,10 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly apps create pleasant-rides
    ```
 
+   ```sh
+   fly certs add pleasant-rides.afeld.me
+   ```
+
 1. Set the secrets: the API keys from `.env` (only the `*_KEY` variables, since e.g. `BROUTER_URL` points at your local BRouter), and `secrets.toml`, which Fly needs base64-encoded:
 
    ```sh
@@ -146,10 +156,10 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly secrets set STREAMLIT_SECRETS="$(base64 < .streamlit/secrets.toml)"
    ```
 
-1. Deploy, which also creates the cache volume the first time:
+1. Deploy, which also creates the cache volume the first time. `--ha=false` keeps it to one machine, since the cache volume can only be attached to one, and one is plenty:
 
    ```sh
-   fly deploy
+   fly deploy --ha=false
    ```
 
 To change who has access, edit `allowed_emails` (and the test users), then set `STREAMLIT_SECRETS` again.
