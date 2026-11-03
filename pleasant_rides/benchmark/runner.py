@@ -21,6 +21,7 @@ from .variants import VARIANTS
 Fetch = Callable[[Provider, Point, Point], Awaitable[tuple[list[Route], float]]]
 GetEdges = Callable[[Sequence[Point]], Awaitable[list[Edge]]]
 GetSurroundings = Callable[[tuple[Sequence[Point], ...]], Awaitable[Surroundings]]
+Score = Callable[[Ride], scoring.Scorecard]
 # a route's points and how many seconds the provider took to return it
 Fetched = tuple[Sequence[Point], float]
 
@@ -65,12 +66,13 @@ async def run_variants(
     get_edges: GetEdges = map_matching.get_edges,
     get_surroundings: GetSurroundings = surroundings.get_surroundings,
     on_step: Callable[[str, Results], None] = lambda message, results: None,
+    score: Score = scoring.score,
 ):
     """Scores each variant's first route on each trip.
 
-    Fetches the routes trip by trip (see `_Run`), and scores each trip as soon as all of its routes are in, while the later trips' routes are still being fetched. Once a server rate-limits the run, it gets no more requests. The API calls default to calling the APIs directly; pass cached versions to reuse results. `on_step(message, results)` is called after each provider fetches a trip's routes and after each trip is scored, with the results so far.
+    Fetches the routes trip by trip (see `_Run`), and scores each trip as soon as all of its routes are in, while the later trips' routes are still being fetched. Once a server rate-limits the run, it gets no more requests. The API calls and scoring default to calling the APIs and scoring directly; pass cached versions to reuse results. `on_step(message, results)` is called after each provider fetches a trip's routes and after each trip is scored, with the results so far.
     """
-    run = _Run(names, fetch, get_edges, get_surroundings, on_step)
+    run = _Run(names, fetch, get_edges, get_surroundings, on_step, score)
     await asyncio.gather(run.fetch_routes(), run.score_trips())
     return run.results
 
@@ -83,12 +85,14 @@ class _Run:
         get_edges: GetEdges,
         get_surroundings: GetSurroundings,
         on_step: Callable[[str, Results], None],
+        score: Score,
     ):
         self.names = names
         self.fetch = fetch
         self.get_edges = get_edges
         self.get_surroundings = get_surroundings
         self.on_step = on_step
+        self.score = score
         self.backoffs = Backoffs()
         self.by_provider = _by_provider(names)
         # variant name -> trip -> its first route, or an error message
@@ -163,5 +167,5 @@ class _Run:
         )
         if isinstance(edges, str):
             return edges
-        card = scoring.score(Ride(route, edges, around))
+        card = self.score(Ride(route, edges, around))
         return TripScore(card.total, total_km(edges), seconds)

@@ -11,9 +11,11 @@ from pleasant_rides.benchmark.runner import (
 )
 from pleasant_rides.benchmark.table import table_row
 from pleasant_rides.benchmark.variants import VARIANTS
+from pleasant_rides.metrics import Ride
 from pleasant_rides.models import Point, Route
 from pleasant_rides.politeness import ProviderError
 from pleasant_rides.providers.base import MissingAPIKey
+from pleasant_rides.scoring import Scorecard
 from pleasant_rides.trips import TRIPS
 
 BIKE_PATH = {"length": 1.0, "use": "cycleway", "road_class": "service_other"}
@@ -251,3 +253,17 @@ def test_scores_trips_while_later_ones_are_still_being_fetched():
     first_origin = next(iter(TRIPS.values()))[0]
     last_origin = list(TRIPS.values())[-1][0]
     assert events.index(("score", first_origin)) < events.index(("fetch", last_origin))
+
+
+def test_scores_with_the_given_scorer():
+    scored: list[Ride] = []
+
+    def score(ride: Ride):
+        scored.append(ride)
+        return Scorecard({}, 42)
+
+    results = asyncio.run(
+        run_variants([VALHALLA], fetch, get_edges, no_surroundings, score=score)
+    )
+    assert len(scored) == len(TRIPS)
+    assert set(results.trips[VALHALLA].values()) == {TripScore(42, 1.0, 1.5)}

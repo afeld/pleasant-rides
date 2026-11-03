@@ -10,7 +10,12 @@ from pleasant_rides.benchmark.last_run import LastRun
 from pleasant_rides.benchmark.runner import Results, run_variants, steps
 from pleasant_rides.benchmark.table import table_row
 from pleasant_rides.benchmark.variants import VARIANTS
-from pleasant_rides.cached import fetch_routes_timed, get_edges, get_surroundings
+from pleasant_rides.cached import (
+    fetch_routes_timed,
+    get_edges,
+    get_surroundings,
+    score_ride,
+)
 from pleasant_rides.providers import redact
 from pleasant_rides.trips import TRIPS, short
 
@@ -94,7 +99,14 @@ def run(names: list[str]):
 
     started = time.perf_counter()
     results = asyncio.run(
-        run_variants(names, fetch_routes_timed, get_edges, get_surroundings, on_step)
+        run_variants(
+            names,
+            fetch_routes_timed,
+            get_edges,
+            get_surroundings,
+            on_step,
+            score_ride,
+        )
     )
     progress.empty()
     finished = LastRun(
@@ -129,7 +141,7 @@ if not latest:
 # leaving out variants that have been renamed or removed since
 shown = [name for name in latest.names if name in VARIANTS]
 summary.caption(
-    f"Last run {latest.finished:%b %-d at %-I:%M %p}, in {latest.seconds:.0f} s, reusing cached routes and scoring data where possible. The routing times are from when the routes were fetched."
+    f"Last run {latest.finished:%b %-d at %-I:%M %p}, in {latest.seconds:.0f} s, reusing cached routes, scoring data, and scores where possible. The routing times are from when the routes were fetched."
 )
 show_table(shown, latest.results)
 show_errors(shown, latest.results)
