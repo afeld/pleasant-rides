@@ -8,6 +8,7 @@ from pleasant_rides.politeness import (
     ProviderError,
     is_rate_limited,
     is_retryable,
+    is_timeout,
     status_error,
     wait_turn,
 )
@@ -98,3 +99,12 @@ def test_permanent_errors():
     assert not is_permanent(status_error("Test", response(503), "busy"))
     assert not is_permanent(ProviderError("busy", retryable=True))
     assert not is_permanent(RuntimeError("bug"))
+
+
+def test_timeouts():
+    assert is_timeout(httpx.ReadTimeout("timed out"))
+    assert is_timeout(httpx.ConnectTimeout("timed out"))
+    # e.g. from asyncio.wait_for(), as for Apple Maps' helper
+    assert is_timeout(TimeoutError())
+    assert not is_timeout(httpx.ConnectError("refused"))
+    assert not is_timeout(RuntimeError("bug"))

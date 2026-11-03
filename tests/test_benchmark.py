@@ -1,5 +1,6 @@
 import asyncio
 
+import httpx
 import pytest
 
 from pleasant_rides.benchmark import retries
@@ -305,3 +306,38 @@ def test_table_row_redacts_errors(monkeypatch):
     monkeypatch.setenv("SOME_API_KEY", "s3cret")
     trips: dict[str, TripResult] = {trip: "ProviderError: s3cret" for trip in TRIPS}
     assert "s3cret" not in table_row(VALHALLA, trips)["Errors"]
+
+
+def test_stops_requests_to_a_server_that_keeps_timing_out():
+    attempts = []
+
+    async def timing_out(provider, origin, destination):
+        attempts.append(provider.name)
+        if provider.name == "BRouter":
+            raise httpx.ReadTimeout("timed out")
+        return await fetch(provider, origin, destination)
+
+    stronger = "BRouter: pleasant, stronger penalties"
+    results, _ = run([BROUTER, stronger, VALHALLA], fetch=timing_out)
+    # one request to BRouter, tried as many times as errors that might go away are, then none
+    assert attempts.count("BRouter") == retries.ATTEMPTS
+    first, *rest = results.trips[BROUTER].values()
+    assert first == "ReadTimeout: timed out"
+    for result in [*rest, *results.trips[stronger].values()]:
+        assert isinstance(result, str) and result.startswith(
+            "skipped, since BRouter timed out"
+        )
+    assert all(isinstance(r, TripScore) for r in results.trips[VALHALLA].values())
+
+
+def test_keeps_using_a_server_that_times_out_once():
+    attempts = []
+
+    async def slow_once(provider, origin, destination):
+        attempts.append(provider)
+        if len(attempts) == 1:
+            raise httpx.ReadTimeout("timed out")
+        return await fetch(provider, origin, destination)
+
+    results, _ = run([VALHALLA], fetch=slow_once)
+    assert all(isinstance(r, TripScore) for r in results.trips[VALHALLA].values())

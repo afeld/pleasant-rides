@@ -64,6 +64,11 @@ def is_retryable(error: Exception):
     return isinstance(error, ProviderError) and error.retryable
 
 
+def is_timeout(error: Exception):
+    """Whether the server took too long, e.g. because it's down or overloaded."""
+    return isinstance(error, (httpx.TimeoutException, TimeoutError))
+
+
 def is_permanent(error: Exception):
     """Whether trying again would only fail the same way, like a bad request or a feature that needs a paid plan."""
     if is_rate_limited(error) or is_retryable(error):
