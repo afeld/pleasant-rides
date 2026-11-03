@@ -17,7 +17,7 @@ MAPILLARY_CSS = "https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css"
 
 _GEOD = Geod(ellps="WGS84")
 METERS_PER_MILE = 1609.344
-# stretches longer than this without a photo are pointed out; steps are normally 25 m apart, and photos up to ~45 m
+# stretches longer than this without a photo are pointed out; steps are 50 m apart, so photos are usually ~50 m apart and up to ~75 m
 GAP_M = 150
 
 

@@ -34,7 +34,7 @@ def test_preview_renders_with_the_token_and_steps():
 
 
 def test_step_data_marks_gaps_without_photos():
-    # the route is ~1,112 m; photos every 25 m, then none for 500 m, then none for the last ~460 m
+    # the route is ~1,112 m; photos 25 m apart, then none for 500 m, then none for the last ~460 m
     first, before_gap, after_gap = step_data(
         POINTS, [step(0), step(25), step(525)], SEGMENTS
     )

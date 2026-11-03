@@ -27,7 +27,7 @@ REQUEST_INTERVAL_S = 0.2
 ZOOM = 14
 
 # how far apart the steps along the route are, how far from the route a photo can be, and how far off the route's direction a photo (other than a 360° one) can face
-STEP_M = 25
+STEP_M = 50
 NEAR_M = 20
 FACING_DEGREES = 60
 # photos about this close to a step are treated as equally close, so the newest of them wins
