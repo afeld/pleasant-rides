@@ -25,7 +25,7 @@ P = ParamSpec("P")
 
 
 def call(cached: CachedFunc[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
-    """`cached(*args, **kwargs)`, but if its entry on disk can't be read, recomputes it rather than failing every time. Streamlit writes the files in place, so one is empty while it's being written, and stays that way if the write doesn't finish, which happened on Fly with Overture's tiles.
+    """`cached(*args, **kwargs)`, but if its entry on disk can't be read, recomputes it rather than failing every time. Streamlit writes the files in place, so one is empty while it's being written, and stays that way if the write doesn't finish, which happened on Fly with Overture's tiles (https://github.com/streamlit/streamlit/issues/17830).
 
     The cached functions themselves are left as they are, since their source code is part of their cache key, so changing them would refetch everything.
     """
