@@ -1,2 +1,4 @@
 [server]
 runOnSave = true
+# the Bike lanes map is ~9 MB of JSON, which compresses to ~1 MB
+enableWebsocketCompression = true
