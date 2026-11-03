@@ -3,6 +3,7 @@
 import asyncio
 import os
 import re
+import sys
 import time
 from collections.abc import Awaitable, Callable
 
@@ -25,7 +26,8 @@ PROVIDERS = {
         GraphHopper(),
         Google(),
         Cyclemate(),
-        Apple(),
+        # it uses MapKit, which only exists on macOS
+        *([Apple()] if sys.platform == "darwin" else []),
     ]
 }
 
