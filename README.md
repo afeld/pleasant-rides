@@ -54,9 +54,10 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    GOOGLE_MAPS_API_KEY=...
    GRAPHHOPPER_API_KEY=...
    CYCLEMATE_API_KEY=...
+   MAPILLARY_ACCESS_TOKEN=...
    ```
 
-   Valhalla and BRouter use public servers and don't need keys (or run BRouter yourself; see [Local BRouter](#local-brouter)). The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs. Scoring also uses Valhalla's public server, plus [Overture Maps](https://overturemaps.org/) data for scenery, points of interest, and remoteness, which is downloaded from its public S3 bucket.
+   Valhalla and BRouter use public servers and don't need keys (or run BRouter yourself; see [Local BRouter](#local-brouter)). The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs. Scoring also uses Valhalla's public server, plus [Overture Maps](https://overturemaps.org/) data for scenery, points of interest, and remoteness, which is downloaded from its public S3 bucket. `MAPILLARY_ACCESS_TOKEN` is for previewing a selected route with [Mapillary](https://www.mapillary.com/)'s street-level photos; create one by [registering an app](https://www.mapillary.com/dashboard/developers). It's also sent to the browser, which loads the photos itself.
 
 1. Start the app:
 
@@ -158,10 +159,10 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly deploy brouter --ha=false
    ```
 
-1. Set the secrets: the API keys from `.env` (only the `*_KEY` variables, since e.g. `BROUTER_URL` points at your local BRouter), and `secrets.toml`, which Fly needs base64-encoded:
+1. Set the secrets: the API keys and tokens from `.env` (only the `*_KEY` and `*_TOKEN` variables, since e.g. `BROUTER_URL` points at your local BRouter), and `secrets.toml`, which Fly needs base64-encoded:
 
    ```sh
-   grep '_KEY=' .env | fly secrets import --stage
+   grep -E '_(KEY|TOKEN)=' .env | fly secrets import --stage
    ```
 
    ```sh

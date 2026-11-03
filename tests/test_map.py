@@ -1,7 +1,7 @@
 import folium
 import pytest
 
-from pleasant_rides.map import build_map, split_by_lengths
+from pleasant_rides.map import Segment, build_map, split_by_lengths
 from pleasant_rides.models import Point, Route
 
 A = Route("Valhalla", "Primary", (Point(40.0, -74.0), Point(40.01, -74.0)))
@@ -55,7 +55,9 @@ def test_split_by_lengths():
 
 
 def test_highlight_colored_by_segment_scores():
-    m = build_map([A, B, C], highlight=C, segments=[(1.0, 100.0), (1.0, 0.0)])
+    m = build_map(
+        [A, B, C], highlight=C, segments=[Segment(1.0, 100.0), Segment(1.0, 0.0)]
+    )
     *routes, outline, good, bad = lines(m)
     assert len(routes) == 3
     assert good.locations[-1] == bad.locations[0]
