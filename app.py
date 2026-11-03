@@ -1,9 +1,11 @@
 import streamlit as st
 
+from pleasant_rides.cyclemate_login import use_cyclemate_login
 from pleasant_rides.login import require_login
 
 st.set_page_config(page_title="Pleasant Rides", layout="wide")
 require_login()
+use_cyclemate_login()
 st.navigation(
     [
         st.Page("app_pages/planner.py", title="Planner", default=True),

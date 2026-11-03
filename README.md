@@ -56,6 +56,14 @@ A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton
    CYCLEMATE_API_KEY=...
    ```
 
+   Instead of (or as well as) Cyclemate's API key, people can sign in with Cyclemate, so its routes are requested as them, against their own rate limit. That needs an [OAuth client](https://docs.cyclemate.club/api-reference/oauth), which you get by emailing support@cyclemate.club with the app's name, its redirect URI (`http://localhost:8501/` locally), and whether it's confidential (with a secret) or public. Cyclemate asks for one client per environment. Then add it to `.env`:
+
+   ```sh
+   CYCLEMATE_CLIENT_ID=...
+   # only for a confidential client
+   CYCLEMATE_CLIENT_SECRET=...
+   ```
+
    Valhalla and BRouter use public servers and don't need keys (or run BRouter yourself; see [Local BRouter](#local-brouter)). The Apple Maps provider needs macOS with the Xcode command line tools (`xcode-select --install`); it compiles a small Swift program the first time it runs. Scoring also uses Valhalla's public server, plus [Overture Maps](https://overturemaps.org/) data for scenery, points of interest, and remoteness, which is downloaded from its public S3 bucket.
 
 1. Start the app:
@@ -152,6 +160,12 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
 
    ```sh
    fly secrets set STREAMLIT_SECRETS="$(base64 < .streamlit/secrets.toml)"
+   ```
+
+   To let people sign in with Cyclemate, set the production client's ID (and secret, if it has one), which Cyclemate issues separately from your local one, for the redirect URI `https://pleasant-rides.afeld.me/` (set as `CYCLEMATE_REDIRECT_URI` in `fly.toml`):
+
+   ```sh
+   fly secrets set --stage CYCLEMATE_CLIENT_ID=... CYCLEMATE_CLIENT_SECRET=...
    ```
 
 1. Deploy the first time, which also creates the cache volume. `--ha=false` keeps it to one machine, since the cache volume can only be attached to one, and one is plenty:

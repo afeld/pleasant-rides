@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "authlib>=1.9.2",
     "folium>=0.20.0",
     "geopandas>=1.1.4",
     "httpx>=0.28.1",
