@@ -34,7 +34,7 @@ from .metrics import (
 
 # in the order they're shown, grouped as in the README
 METRICS = [
-    Total("distance_mi", "Distance (mi)", compute=total_miles),
+    Total("distance_mi", "Distance (mi)", format="%.1f", compute=total_miles),
     # "not necessarily the most direct, but it shouldn't add a ton of time"
     Detour(
         "detour",

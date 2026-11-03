@@ -50,7 +50,7 @@ COLUMNS = {
     ),
     **{
         f"{short(t)} mi": st.column_config.NumberColumn(
-            f"{short(t)} mi", help=t, format="%.0f"
+            f"{short(t)} mi", help=t, format="%.1f"
         )
         for t in TRIPS
     },
