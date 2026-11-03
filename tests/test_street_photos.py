@@ -103,3 +103,20 @@ def test_route_steps_fetches_each_tile_once():
     result = asyncio.run(sp.route_steps(ROUTE, fetch_tile))
     assert len(fetched) == len(set(fetched)) >= 1
     assert [s.photo_id for s in result] == ["only"]
+
+
+def test_route_steps_fetches_a_few_tiles_at_a_time():
+    # ~10 km north, across several tiles
+    route = (Point(40.70, -73.99), Point(40.79, -73.99))
+    active, most = 0, 0
+
+    async def fetch_tile(x: int, y: int):
+        nonlocal active, most
+        active += 1
+        most = max(most, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        return pd.DataFrame(columns=sp.COLUMNS)
+
+    asyncio.run(sp.route_steps(route, fetch_tile))
+    assert most == sp.CONCURRENT_TILES

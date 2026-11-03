@@ -3,6 +3,7 @@
 The photos' positions and directions come from Mapillary's coverage tiles (https://www.mapillary.com/developer/api-documentation#coverage-tiles), which list every photo in a ~2.4 km square, so a whole route takes one request per tile rather than one per photo. The browser then loads the photos themselves from Mapillary, with MapillaryJS (see `map.RoutePreview`).
 """
 
+import asyncio
 import os
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -21,8 +22,9 @@ from .providers.base import MissingAPIKey
 
 TOKEN_VAR = "MAPILLARY_ACCESS_TOKEN"
 SERVER = "tiles.mapillary.com"
-# Mapillary allows 50,000 tile requests a day; a route takes a few dozen at most, which are cached
+# Mapillary allows 50,000 tile requests a day; a route takes a few dozen at most, which are cached. A few at a time, since each is a download of up to a few MB: one at a time, a 10 mile route's 8 tiles took ~7 s.
 REQUEST_INTERVAL_S = 0.2
+CONCURRENT_TILES = 3
 # the zoom level whose coverage tiles list individual photos
 ZOOM = 14
 
@@ -55,7 +57,8 @@ async def fetch_tile(x: int, y: int):
         )
     if response.is_error:
         raise status_error("Mapillary", response, response.text)
-    return parse_tile(response.content, x, y)
+    # in a thread, so other tiles download meanwhile
+    return await asyncio.to_thread(parse_tile, response.content, x, y)
 
 
 def parse_tile(content: bytes, x: int, y: int):
@@ -105,9 +108,15 @@ async def route_steps(
     points: Sequence[Point],
     fetch_tile: Callable[[int, int], Awaitable[pd.DataFrame]] = fetch_tile,
 ):
-    """The steps along the route that have a photo, in order. `fetch_tile()` gets a coverage tile's photos (see `fetch_tile()`); tiles are fetched one at a time, to be polite."""
+    """The steps along the route that have a photo, in order. `fetch_tile()` gets a coverage tile's photos (see `fetch_tile()`); CONCURRENT_TILES are fetched at a time."""
     tiles = sorted({(t.x, t.y) for t in map(_tile, _samples(points)[0])})
-    frames = [await fetch_tile(x, y) for x, y in tiles]
+    limit = asyncio.Semaphore(CONCURRENT_TILES)
+
+    async def fetch(x: int, y: int):
+        async with limit:
+            return await fetch_tile(x, y)
+
+    frames = await asyncio.gather(*(fetch(x, y) for x, y in tiles))
     photos = pd.concat(
         [f for f in frames if not f.empty] or [pd.DataFrame(columns=COLUMNS)]
     )
