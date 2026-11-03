@@ -4,7 +4,7 @@ import pytest
 
 from pleasant_rides.metrics import Ride
 from pleasant_rides.models import Point
-from pleasant_rides.scoring import METRICS, score
+from pleasant_rides.scoring import METRICS, edge_scores, score
 from pleasant_rides.surroundings import Surroundings
 
 POINTS = (Point(40.0, -74.0), Point(40.01, -74.0))
@@ -154,3 +154,12 @@ def _metric(key: str):
 )
 def test_scoring_rule(key: str, rule: str):
     assert _metric(key).scoring_rule == rule
+
+
+def test_edge_scores():
+    bike_path, busy_road = edge_scores([BIKE_PATH, BUSY_ROAD])
+    assert bike_path == 100
+    # low traffic, slow, and gentle etc.; 4 lanes is 0.4 of the credit for lanes
+    assert busy_road == pytest.approx(
+        100 * (0.4 * 1 + 2 + 1 + 2) / (3 + 2 + 1 + 2 + 1 + 2)
+    )

@@ -39,6 +39,10 @@ class Metric:
         """`value` as 0-1, higher being better."""
         return value
 
+    def score_edge(self, edge: Edge) -> float | None:
+        """A single road segment's credit (0-1), or None if this metric doesn't apply to segments on their own (like turns, or surroundings) or to this one."""
+        return None
+
     @property
     def scoring_rule(self) -> str:
         """How `score()` turns the value into credit, for explaining it in the app."""
@@ -70,6 +74,9 @@ class Share(Metric):
         return (
             total_km([e for e in edges if self.condition(e)]) / total if total else None
         )
+
+    def score_edge(self, edge: Edge):
+        return float(self.condition(edge)) if self.of([edge]) else None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -170,6 +177,9 @@ class Average(LowerIsBetter):
         edges = self.of(ride.edges)
         km = total_km(edges)
         return sum(self.value(e) * e["length"] for e in edges) / km if km else None
+
+    def score_edge(self, edge: Edge):
+        return self.score(self.value(edge)) if self.of([edge]) else None
 
 
 _GEOD = Geod(ellps="WGS84")

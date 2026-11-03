@@ -20,6 +20,7 @@ from .edges import (
     total_miles,
     turns,
 )
+from .map_matching import Edge
 from .metrics import (
     Average,
     Away,
@@ -166,6 +167,22 @@ class Scorecard:
     values: dict
     # 0-100, the weighted average of the metrics' scores
     total: float
+
+
+def edge_scores(edges: list[Edge]):
+    """Each road segment's 0-100 score, from only the metrics that apply to a segment on its own (like traffic and surface, but not turns or surroundings), or None if none of them do."""
+    return [_edge_score(e) for e in edges]
+
+
+def _edge_score(edge: Edge):
+    weighted = [
+        (s, m.weight)
+        for m in METRICS
+        if m.weight and (s := m.score_edge(edge)) is not None
+    ]
+    if not weighted:
+        return None
+    return 100 * sum(s * w for s, w in weighted) / sum(w for _, w in weighted)
 
 
 def score(ride: Ride):
