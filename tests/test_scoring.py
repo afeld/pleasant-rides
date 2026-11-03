@@ -135,3 +135,22 @@ def test_detour_is_distance_vs_a_straight_line():
 def test_detour_of_a_loop_is_none():
     loop = Ride((POINTS[0], POINTS[1], POINTS[0]), [BIKE_PATH], None)
     assert score(loop).values["detour"] is None
+
+
+def _metric(key: str):
+    return next(m for m in METRICS if m.key == key)
+
+
+@pytest.mark.parametrize(
+    "key, rule",
+    [
+        ("distance_mi", "Not scored, only shown"),
+        ("green", "In proportion to the share"),
+        ("quiet", "In proportion to the share"),
+        ("turns_per_km", "Half credit at 1/km; fewer is better"),
+        ("sights_per_km", "Half credit at 0.5/km; more is better"),
+        ("detour", "Full credit at 1.3 or less; half at 2"),
+    ],
+)
+def test_scoring_rule(key: str, rule: str):
+    assert _metric(key).scoring_rule == rule

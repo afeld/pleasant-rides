@@ -39,6 +39,11 @@ class Metric:
         """`value` as 0-1, higher being better."""
         return value
 
+    @property
+    def scoring_rule(self) -> str:
+        """How `score()` turns the value into credit, for explaining it in the app."""
+        return "In proportion to the share" if self.weight else "Not scored, only shown"
+
 
 # keyword-only, so these fields can be required even though Metric's later ones have defaults
 @dataclass(frozen=True, kw_only=True)
@@ -83,6 +88,10 @@ class PerKm(Metric):
     def score(self, value: float):
         return self.half_score / (self.half_score + value)
 
+    @property
+    def scoring_rule(self):
+        return f"Half credit at {self.half_score:g}/km; fewer is better"
+
 
 @dataclass(frozen=True, kw_only=True)
 class Near(Metric):
@@ -117,6 +126,10 @@ class PassesPerKm(Metric):
     def score(self, value: float):
         return value / (self.half_score + value)
 
+    @property
+    def scoring_rule(self):
+        return f"Half credit at {self.half_score:g}/km; more is better"
+
 
 @dataclass(frozen=True, kw_only=True)
 class Away(Near):
@@ -140,6 +153,10 @@ class LowerIsBetter(Metric):
     def score(self, value: float):
         half = self.half_score - self.best
         return half / (half + max(value - self.best, 0))
+
+    @property
+    def scoring_rule(self):
+        return f"Full credit at {self.best:g} or less; half at {self.half_score:g}"
 
 
 @dataclass(frozen=True, kw_only=True)

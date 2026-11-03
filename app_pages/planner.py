@@ -1,6 +1,7 @@
 import asyncio
 import time
 
+import pandas as pd
 import streamlit as st
 
 from pleasant_rides.cached import fetch_routes, geocode, get_edges, get_surroundings
@@ -189,6 +190,27 @@ def show_score_table(scored: list[tuple[Route, Scorecard]]):
         },
         column_order=["Provider", "Route", "score", *(m.key for m in METRICS)],
     )
+    show_scoring_criteria()
+
+
+def show_scoring_criteria():
+    with st.expander("How routes are scored"):
+        st.markdown(
+            "Each route's score (0–100) is the weighted average of the criteria below, each scored from no credit to full credit. Criteria that don't apply to a route, like speed limits when none of its roads has a known one, are left out of its average. Road details come from [OpenStreetMap](https://www.openstreetmap.org/), and surroundings from [Overture Maps](https://overturemaps.org/)."
+        )
+        st.table(
+            pd.DataFrame(
+                [
+                    {
+                        "Criterion": m.label,
+                        "What counts": m.help,
+                        "Weight": f"{m.weight:g}" if m.weight else "",
+                        "Scoring": m.scoring_rule,
+                    }
+                    for m in METRICS
+                ]
+            ).set_index("Criterion")
+        )
 
 
 asyncio.run(show_routes())
