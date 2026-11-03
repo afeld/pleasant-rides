@@ -17,6 +17,15 @@
         "8501"
       ],
       "port": 8501
+    },
+    {
+      "name": "app-signed-out",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "REQUIRE_LOGIN=1 exec uv run streamlit run app.py --server.headless true --server.port 8502"
+      ],
+      "port": 8502
     }
   ]
 }
