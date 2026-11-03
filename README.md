@@ -111,6 +111,16 @@ GraphHopper's hosted API needs a key, and its free plan is rate limited and does
 
 To run both local servers, run `docker compose up`. To stop them, run `docker compose down`. To get fresh data, which Geofabrik updates daily, run `docker compose build --no-cache graphhopper`.
 
+## Running everything in Docker
+
+To run the app along with its own BRouter and GraphHopper (see [Local BRouter](#local-brouter) and [Local GraphHopper](#local-graphhopper)), without installing uv:
+
+```sh
+docker compose up app
+```
+
+It opens at http://localhost:8501. It reads API keys and tokens from `.env` if there is one, and always uses the local servers, whatever `BROUTER_URL` and `GRAPHHOPPER_URL` say there. Its cache is kept in a Docker volume, separate from `~/.streamlit/cache`. It doesn't rerun when you edit the code; to pick up changes, run `docker compose up --build app`. The Apple Maps provider is skipped, since it needs macOS.
+
 ## Deploying
 
 The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. It routes with its own BRouter and GraphHopper, separate Fly apps (`pleasant-rides-brouter`, in [`brouter/`](brouter/), and `pleasant-rides-graphhopper`, in [`graphhopper/`](graphhopper/)) that have no public IP: the app reaches them over Fly's private network through [Flycast](https://fly.io/docs/networking/flycast/), which also starts them on demand. On deployed copies, anyone can see the sample trips and the bike lanes, since those only ever fetch the same things, which are then cached. Planning your own trip, running the benchmark, and previewing street-level photos require signing in with Google, and only the sign-in client's test users get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since those could make any number of requests, spending the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create. Terraform also caps Google's Routes API at 64 requests a day, which keeps it under $20 a month even at its higher rate (see [`terraform/quota.tf`](terraform/quota.tf)). Past the cap, the Google Maps provider fails until the next day (Pacific time), and the app shows that as a warning.

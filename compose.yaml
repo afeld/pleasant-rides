@@ -1,4 +1,4 @@
-# Local routing servers, so routing doesn't depend on the busy (or paid) public ones. They're the same images as the deployed ones. See "Local BRouter" and "Local GraphHopper" in the README.
+# Local routing servers, so routing doesn't depend on the busy (or paid) public ones, and optionally the app itself using them. They're the same images as the deployed ones. See "Local BRouter", "Local GraphHopper", and "Running everything in Docker" in the README.
 name: pleasant-rides
 
 services:
@@ -22,3 +22,24 @@ services:
         BBOX: ${GRAPHHOPPER_BBOX--75,40,-70,45}
     ports:
       - 127.0.0.1:8989:8989
+
+  # the app, using the servers above; it's in a profile so that `docker compose up` only starts the servers, for running the app outside Docker. `docker compose up app` starts all three.
+  app:
+    build: .
+    profiles: [app]
+    depends_on: [brouter, graphhopper]
+    # API keys and tokens, for the providers that need them; the server URLs below take precedence over ones there, which point at localhost
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BROUTER_URL: http://brouter:17777/brouter
+      GRAPHHOPPER_URL: http://graphhopper:8989
+    ports:
+      - 127.0.0.1:8501:8080
+    volumes:
+      # Streamlit's disk cache, kept across restarts and rebuilds
+      - cache:/root/.streamlit/cache
+
+volumes:
+  cache:
