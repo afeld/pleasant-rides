@@ -30,7 +30,7 @@ def test_preview_renders_with_the_token_and_steps():
     RoutePreview(data, "test-token", route_miles(POINTS)).add_to(m)
     html = m.get_root().render()
     assert '"test-token"' in html
-    assert "Preview route" in html
+    assert "route-preview" in html
 
 
 def test_step_data_marks_gaps_without_photos():

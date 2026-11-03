@@ -72,7 +72,7 @@ def step_data(
 
 
 class RoutePreview(MacroElement):
-    """A "Preview route" button on the map that opens MapillaryJS in a panel, with buttons, arrow keys, and a slider to step along the route. Clicking the route on the map jumps to the nearest step."""
+    """MapillaryJS in a panel on the map, with buttons, arrow keys, and a slider to step along the route. Clicking the route on the map opens it at the nearest step."""
 
     _template = Template("""
         {% macro header(this, kwargs) %}
@@ -93,7 +93,6 @@ class RoutePreview(MacroElement):
             .route-preview-controls button { min-width: 44px; min-height: 44px; font-size: 18px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; }
             .route-preview-controls button:disabled { opacity: 0.4; cursor: default; }
             .route-preview-controls input { flex: 1; min-height: 44px; }
-            .route-preview-open { font: 14px system-ui, sans-serif; padding: 8px 10px; min-height: 44px; background: #fff; border: 2px solid rgba(0, 0, 0, 0.2); border-radius: 4px; cursor: pointer; }
             .route-preview-marker { font-size: 26px; line-height: 28px; text-align: center; color: #111; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
         </style>
         {% endmacro %}
@@ -251,17 +250,6 @@ class RoutePreview(MacroElement):
                 else if (e.key === "Escape") close();
             });
 
-            var Button = L.Control.extend({
-                onAdd: function () {
-                    var button = L.DomUtil.create("button", "route-preview-open");
-                    button.type = "button";
-                    button.textContent = "Preview route";
-                    L.DomEvent.disableClickPropagation(button);
-                    button.addEventListener("click", function () { open(index); });
-                    return button;
-                },
-            });
-            new Button({ position: "topleft" }).addTo(map);
             // once the page has loaded and the map has finished its animated zoom to fit the routes, since Leaflet ignores zooming (as open() does) during one
             function openWhenSettled() {
                 if (map._animatingZoom) map.once("zoomend", function () { setTimeout(openWhenSettled); });

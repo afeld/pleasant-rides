@@ -169,19 +169,17 @@ async def street_preview(route: Route, segments: list[Segment]):
     except MissingAPIKey as e:
         warnings.caption(f"Street-level preview: skipped ({e})")
         return None
-    # remembered for the route, so that reruns keep the preview (from the cache) without opening it again
+    # remembered for the route, so that reruns keep the preview (from the cache), so clicking the route still opens it, without opening it again
     key = f"preview:{table_key}:{route.id}"
-    just_asked = False
-    if not st.session_state.get(key):
-        just_asked = preview_placeholder.button(
-            "Preview street-level photos",
-            icon=":material/photo_camera:",
-            key=f"{key}:button",
-        )
-        if not just_asked:
-            return None
+    just_asked = preview_placeholder.button(
+        "Preview street-level photos",
+        icon=":material/photo_camera:",
+        key=f"{key}:button",
+    )
+    if just_asked:
         st.session_state[key] = True
-    preview_placeholder.empty()
+    elif not st.session_state.get(key):
+        return None
     status.caption("Finding street-level photos…")
     try:
         steps = await route_steps(route.points)
