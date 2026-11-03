@@ -1,5 +1,7 @@
 """What the road segments (edges) a route follows are like, and what happens between them, for the metrics."""
 
+from itertools import pairwise
+
 from .map_matching import Edge
 from .units import KM_PER_MILE, METERS_PER_FOOT
 
@@ -52,7 +54,7 @@ def turns(edges: list[Edge]):
         if not e.get("internal_intersection") and not e.get("roundabout")
     ]
     turns = 0
-    for a, b in zip(segments, segments[1:]):
+    for a, b in pairwise(segments):
         if "end_heading" not in a or "begin_heading" not in b:
             continue
         change = abs((b["begin_heading"] - a["end_heading"] + 180) % 360 - 180)
@@ -76,9 +78,7 @@ def climb(edges: list[Edge]):
     elevations = [
         e["mean_elevation"] for e in edges if e.get("mean_elevation") is not None
     ]
-    return (
-        sum(max(b - a, 0) for a, b in zip(elevations, elevations[1:])) / METERS_PER_FOOT
-    )
+    return sum(max(b - a, 0) for a, b in pairwise(elevations)) / METERS_PER_FOOT
 
 
 def roads(edges: list[Edge]):

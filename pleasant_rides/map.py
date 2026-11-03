@@ -1,6 +1,6 @@
 from collections.abc import Sequence
-from typing import NamedTuple
 from itertools import accumulate, pairwise
+from typing import NamedTuple
 
 import folium
 from branca.colormap import LinearColormap
