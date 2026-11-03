@@ -98,3 +98,40 @@ KM_PER_MILE = 1.609344
 
 def total_miles(edges: list[Edge]):
     return total_km(edges) / KM_PER_MILE
+
+
+# https://valhalla.github.io/valhalla/api/map-matching/api-reference/#edge-items
+_ROAD_CLASSES = {"service_other": "service road", "unclassified": "minor road"}
+_CYCLE_LANES = {
+    "shared": "shared",
+    "dedicated": "painted",
+    "separated": "protected",
+    "share_busway": "bus/bike",
+}
+_SURFACES = {
+    "paved_smooth": "smooth pavement",
+    "paved_rough": "rough pavement",
+    "compacted": "compacted gravel",
+    "path": "rough path",
+}
+
+
+def describe(edge: Edge):
+    """What a road segment is like, e.g. "secondary road, 2 lanes, protected bike lane, paved"."""
+    use = edge.get("use", "road")
+    if use != "road":
+        parts = [use.replace("_", " ")]
+    else:
+        road_class = edge.get("road_class")
+        parts = [
+            _ROAD_CLASSES.get(road_class, f"{road_class} road")
+            if road_class
+            else "road"
+        ]
+        if lanes := edge.get("lane_count"):
+            parts.append(f"{lanes} lane{'' if lanes == 1 else 's'}")
+        if (lane := edge.get("cycle_lane", "none")) != "none":
+            parts.append(f"{_CYCLE_LANES.get(lane, lane)} bike lane")
+    if surface := edge.get("surface"):
+        parts.append(_SURFACES.get(surface) or surface.replace("_", " "))
+    return ", ".join(parts)

@@ -4,11 +4,21 @@ import time
 import pandas as pd
 import streamlit as st
 
-from pleasant_rides.cached import fetch_routes, geocode, get_edges, get_surroundings
+from pleasant_rides import street_photos
+from pleasant_rides.cached import (
+    fetch_routes,
+    geocode,
+    get_edges,
+    get_surroundings,
+    route_steps,
+)
+from pleasant_rides.edges import describe
 from pleasant_rides.map import Segment, build_map
 from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
+from pleasant_rides.providers.base import MissingAPIKey
+from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
 from pleasant_rides.scoring import METRICS, Scorecard, edge_scores, score
 from pleasant_rides.surroundings import Surroundings
 from pleasant_rides.trips import TRIPS
@@ -54,6 +64,7 @@ MAP_HEIGHT = 700
 # between, which would make the browser scroll back to the top.
 # (a bit taller than the map itself, which otherwise doesn't quite fit and scrolls)
 map_placeholder = st.container(height=MAP_HEIGHT + 16, border=False).empty()
+preview_placeholder = st.empty()
 
 PARTIAL_MAP_AFTER_S = 1
 
@@ -75,14 +86,18 @@ def all_routes(provider_routes: dict[str, list[Route]]):
 def draw_map(
     provider_routes: dict[str, list[Route]],
     segments: list[Segment] | None = None,
+    preview: RoutePreview | None = None,
 ):
-    """`segments` are the highlighted route's, to color it by."""
+    """`segments` are the highlighted route's, to color it by, and `preview` its street-level preview."""
     routes = all_routes(provider_routes)
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
+        m = build_map(routes, highlight, segments)
+        if preview:
+            preview.add_to(m)
         with map_placeholder:
             st.iframe(
-                build_map(routes, highlight, segments).get_root().render(),
+                m.get_root().render(),
                 height=MAP_HEIGHT,
                 alt="Map of the routes",
             )
@@ -137,9 +152,53 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     if highlight:
         # already fetched (and cached) for scoring
         edges = await get_edges(highlight.points)
-        draw_map(
-            provider_routes, list(zip((e["length"] for e in edges), edge_scores(edges)))
+        segments = [
+            Segment(e["length"], s, describe(e))
+            for e, s in zip(edges, edge_scores(edges))
+        ]
+        draw_map(provider_routes, segments)
+        preview = await street_preview(highlight, segments)
+        if preview:
+            draw_map(provider_routes, segments, preview)
+
+
+async def street_preview(route: Route, segments: list[Segment]):
+    """Mapillary's photos along the route, to step through on the map, once asked for, since finding them the first time takes a few seconds; or None if they weren't asked for or there aren't any."""
+    try:
+        token = street_photos.token()
+    except MissingAPIKey as e:
+        warnings.caption(f"Street-level preview: skipped ({e})")
+        return None
+    # remembered for the route, so that reruns keep the preview (from the cache), so clicking the route still opens it, without opening it again
+    key = f"preview:{table_key}:{route.id}"
+    just_asked = preview_placeholder.button(
+        "Preview street-level photos",
+        icon=":material/photo_camera:",
+        key=f"{key}:button",
+    )
+    if just_asked:
+        st.session_state[key] = True
+    elif not st.session_state.get(key):
+        return None
+    status.caption("Finding street-level photos…")
+    try:
+        steps = await route_steps(route.points)
+    except Exception as e:
+        warnings.warning(
+            redact(
+                f"Couldn't get street-level photos from Mapillary ({type(e).__name__}: {e})"
+            )
         )
+        return None
+    if not steps:
+        warnings.caption("Mapillary doesn't have street-level photos along this route.")
+        return None
+    return RoutePreview(
+        step_data(route.points, steps, segments),
+        token,
+        route_miles(route.points),
+        open=just_asked,
+    )
 
 
 async def score_routes(routes: list[Route]):

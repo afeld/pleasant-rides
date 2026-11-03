@@ -8,6 +8,7 @@ dependencies = [
     "folium>=0.20.0",
     "geopandas>=1.1.4",
     "httpx>=0.28.1",
+    "mapbox-vector-tile>=2.2.0",
     "mercantile>=1.2.1",
     "overturemaps>=1.0.2",
     "polyline>=2.0.4",

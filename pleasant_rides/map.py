@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import NamedTuple
 from itertools import accumulate, pairwise
 
 import folium
@@ -154,7 +155,7 @@ class RouteTooltip(MacroElement):
 COLORS = ["#E63946", "#1D3557", "#2A9D8F", "#F4A261", "#457B9D", "#8338EC"]
 
 
-def _segment_colors():
+def segment_colors():
     """Segment score -> color, which is also the map's legend for them, so there's a new one per map."""
     # red to blue (ColorBrewer's RdYlBu), rather than red to green, since it's color-blind safe
     return LinearColormap(
@@ -165,8 +166,15 @@ def _segment_colors():
     )
 
 
-# a route segment's length (in any unit) and its 0-100 score, or None if it isn't scored
-Segment = tuple[float, float | None]
+class Segment(NamedTuple):
+    """A road segment along a route."""
+
+    # in any unit, since only their proportions are used
+    length: float
+    # 0-100, or None if it isn't scored
+    score: float | None
+    # what it's like, e.g. "secondary road, 2 lanes, protected bike lane, paved"
+    description: str = ""
 
 
 def build_map(
@@ -246,12 +254,12 @@ def _add_highlight(
     overlay = folium.FeatureGroup(control=False)
     folium.PolyLine(route.points, color="white", weight=11, opacity=1).add_to(overlay)
     if segments:
-        colors = _segment_colors()
-        pieces = split_by_lengths(route.points, [length for length, _ in segments])
-        for piece, (_, score) in zip(pieces, segments):
+        colors = segment_colors()
+        pieces = split_by_lengths(route.points, [s.length for s in segments])
+        for piece, segment in zip(pieces, segments):
             folium.PolyLine(
                 piece,
-                color=color if score is None else colors(score),
+                color=color if segment.score is None else colors(segment.score),
                 weight=7,
                 opacity=1,
             ).add_to(overlay)
