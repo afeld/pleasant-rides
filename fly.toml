@@ -1,0 +1,30 @@
+# Fly.io deployment; see "Deploying" in the README. Reference: https://fly.io/docs/reference/configuration/
+app = "pleasant-rides"
+# near New York City, where the sample trips are
+primary_region = "ewr"
+
+[env]
+  # see pleasant_rides/login.py
+  REQUIRE_LOGIN = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # stop when nobody's connected and start on the next request, so it costs ~nothing when idle
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+# Streamlit's disk cache (st.cache_data(persist="disk")), so that it survives restarts and deploys rather than refetching from the providers
+[mounts]
+  source = "cache"
+  destination = "/root/.streamlit/cache"
+  initial_size = "1gb"
+
+# the sign-in settings and allowlist; Fly needs the secret base64-encoded
+[[files]]
+  guest_path = "/app/.streamlit/secrets.toml"
+  secret_name = "STREAMLIT_SECRETS"
+
+[[vm]]
+  memory = "2gb"

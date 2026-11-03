@@ -9,3 +9,6 @@ __pycache__/
 
 # worktrees made by Claude Code
 .claude/worktrees/
+
+# sign-in settings and allowlist (see "Deploying" in the README)
+.streamlit/secrets.toml
