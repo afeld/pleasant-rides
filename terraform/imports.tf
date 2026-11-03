@@ -1,4 +1,4 @@
-# What existed in the project before Terraform managed it. These do nothing once applied, so they can be deleted after the first `terraform apply`.
+# What existed in the project before Terraform managed it. These do nothing once imported, but are kept so that the local state can be rebuilt if it's lost.
 
 import {
   to = google_apikeys_key.maps
