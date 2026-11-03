@@ -17,6 +17,7 @@ from pyproj import CRS, Transformer
 
 from . import overture
 from .models import Point
+from .units import METERS_PER_MILE
 
 # https://docs.overturemaps.org/guides/base/
 GREEN_LAND_COVER = ["forest", "shrub", "grass", "wetland", "mangrove", "moss"]
@@ -63,12 +64,13 @@ BUSY_ROAD_CLASSES = ["motorway", "trunk", "primary"]
 # places below this are often duplicates or no longer there
 MIN_CONFIDENCE = 0.6
 
-# how close a route needs to be to each kind of feature (meters)
-GREEN_M = 30  # alongside
-WATER_M = 100  # in view
-SIGHT_M = 50
-HELP_M = 1000  # a ~15 minute walk
-QUIET_M = 50  # within earshot of heavy traffic
+# how close a route needs to be to each kind of feature
+GREEN_FT = 100  # alongside
+WATER_FT = 300  # in view
+SIGHT_FT = 150
+HELP_MI = 0.6  # a ~15 minute walk
+QUIET_FT = 150  # within earshot of heavy traffic
+HELP_M = HELP_MI * METERS_PER_MILE
 
 SAMPLE_M = 20  # spacing of the points along a route that are checked
 

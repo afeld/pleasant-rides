@@ -1,7 +1,7 @@
 """What the road segments (edges) a route follows are like, and what happens between them, for the metrics."""
 
 from .map_matching import Edge
-from .units import KM_PER_MILE
+from .units import KM_PER_MILE, METERS_PER_FOOT
 
 # https://valhalla.github.io/valhalla/api/map-matching/api-reference/#edge-items
 BUSY_ROAD_CLASSES = {"motorway", "trunk", "primary", "secondary"}
@@ -21,7 +21,7 @@ ROUGH_SURFACES = {"dirt", "gravel", "path", "impassable"}
 # where you'd usually have to get off and walk
 WALKING_USES = {"steps", "footway", "pedestrian", "sidewalk"}
 
-FAST_KPH = 50  # ~30 mph
+SLOW_MPH = 30  # and under
 STEEP_GRADE = 6  # percent
 TURN_DEGREES = 45  # a smaller change in heading between road segments is just a bend
 
@@ -72,16 +72,23 @@ def intersections(edges: list[Edge]):
 
 
 def climb(edges: list[Edge]):
-    """Total elevation gain in meters, from the change in mean elevation between consecutive edges."""
+    """Total elevation gain in feet, from the change in mean elevation (in meters) between consecutive edges."""
     elevations = [
         e["mean_elevation"] for e in edges if e.get("mean_elevation") is not None
     ]
-    return sum(max(b - a, 0) for a, b in zip(elevations, elevations[1:]))
+    return (
+        sum(max(b - a, 0) for a, b in zip(elevations, elevations[1:])) / METERS_PER_FOOT
+    )
 
 
 def roads(edges: list[Edge]):
     """Only roads have speed limits and lanes."""
     return [e for e in edges if e.get("use") not in CAR_FREE_USES]
+
+
+def is_slow(edge: Edge):
+    # Valhalla gives speed limits in km/h, so 30 mph comes back as ~48
+    return round(edge["speed_limit"] / KM_PER_MILE) <= SLOW_MPH
 
 
 def posted(edges: list[Edge]):

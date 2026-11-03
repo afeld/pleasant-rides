@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from pyproj import Geod
 
-from .edges import total_km
+from .edges import total_km, total_miles
 from .map_matching import Edge
 from .models import Point
 from .surroundings import Surroundings
@@ -80,8 +80,8 @@ class Share(Metric):
 
 
 @dataclass(frozen=True, kw_only=True)
-class PerKm(Metric):
-    """How many times something happens per km, where fewer is better."""
+class PerMile(Metric):
+    """How many times something happens per mile, where fewer is better."""
 
     count: Callable[[list[Edge]], int]
     # the rate that scores 0.5
@@ -89,15 +89,15 @@ class PerKm(Metric):
     format: str = "%.1f"
 
     def measure(self, ride: Ride):
-        km = total_km(ride.edges)
-        return self.count(ride.edges) / km if km else None
+        miles = total_miles(ride.edges)
+        return self.count(ride.edges) / miles if miles else None
 
     def score(self, value: float):
         return self.half_score / (self.half_score + value)
 
     @property
     def scoring_rule(self):
-        return f"Half credit at {self.half_score:g}/km; fewer is better"
+        return f"Half credit at {self.half_score:g}/mi; fewer is better"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -115,8 +115,8 @@ class Near(Metric):
 
 
 @dataclass(frozen=True, kw_only=True)
-class PassesPerKm(Metric):
-    """How many features in a `layer` of the route's surroundings it passes within `distance` meters of, per km, where more is better."""
+class PassesPerMile(Metric):
+    """How many features in a `layer` of the route's surroundings it passes within `distance` meters of, per mile, where more is better."""
 
     layer: str
     distance: float
@@ -125,17 +125,19 @@ class PassesPerKm(Metric):
     format: str = "%.1f"
 
     def measure(self, ride: Ride):
-        km = total_km(ride.edges)
-        if ride.surroundings is None or not km:
+        miles = total_miles(ride.edges)
+        if ride.surroundings is None or not miles:
             return None
-        return ride.surroundings.count_near(ride.points, self.layer, self.distance) / km
+        return (
+            ride.surroundings.count_near(ride.points, self.layer, self.distance) / miles
+        )
 
     def score(self, value: float):
         return value / (self.half_score + value)
 
     @property
     def scoring_rule(self):
-        return f"Half credit at {self.half_score:g}/km; more is better"
+        return f"Half credit at {self.half_score:g}/mi; more is better"
 
 
 @dataclass(frozen=True, kw_only=True)

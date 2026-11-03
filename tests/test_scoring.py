@@ -50,7 +50,7 @@ def test_share_without_applicable_edges_is_none():
     assert measure([BIKE_PATH])["slow"] is None
 
 
-def test_turns_per_km():
+def test_turns_per_mi():
     edges = [
         {**BIKE_PATH, "begin_heading": 0, "end_heading": 0},
         # a right turn
@@ -60,7 +60,7 @@ def test_turns_per_km():
         # turns across north are measured the short way around
         {**BIKE_PATH, "begin_heading": 350, "end_heading": 350},
     ]
-    assert measure(edges)["turns_per_km"] == pytest.approx(2 / 4)
+    assert measure(edges)["turns_per_mi"] == pytest.approx(2 / (4 / 1.609344))
 
 
 def test_wrong_way_on_a_one_way_isnt_rideable():
@@ -71,13 +71,13 @@ def test_wrong_way_on_a_one_way_isnt_rideable():
 def test_surroundings_metrics_are_left_out_without_surroundings():
     values = measure([BIKE_PATH])
     assert values["green"] is None
-    assert values["sights_per_km"] is None
+    assert values["sights_per_mi"] is None
 
 
 def test_surroundings_metrics():
     values = measure([BIKE_PATH], FakeSurroundings())
     assert values["green"] == 1
-    assert values["sights_per_km"] == 1
+    assert values["sights_per_mi"] == pytest.approx(1.609344)
 
 
 def test_total_is_a_weighted_average_of_what_applies():
@@ -147,8 +147,8 @@ def _metric(key: str):
         ("distance_mi", "Not scored, only shown"),
         ("green", "In proportion to the share"),
         ("quiet", "In proportion to the share"),
-        ("turns_per_km", "Half credit at 1/km; fewer is better"),
-        ("sights_per_km", "Half credit at 0.5/km; more is better"),
+        ("turns_per_mi", "Half credit at 1.5/mi; fewer is better"),
+        ("sights_per_mi", "Half credit at 0.8/mi; more is better"),
         ("detour", "Full credit at 1.3 or less; half at 2"),
     ],
 )
@@ -163,3 +163,16 @@ def test_edge_scores():
     assert busy_road == pytest.approx(
         100 * (0.4 * 1 + 2 + 1 + 2) / (3 + 2 + 1 + 2 + 1 + 2)
     )
+
+
+@pytest.mark.parametrize(
+    "kph, slow", [(40, True), (48, True), (50, False), (64, False)]
+)
+def test_slow_is_30_mph_and_under(kph: int, slow: bool):
+    road = {**BUSY_ROAD, "speed_limit": kph}
+    assert measure([road])["slow"] == float(slow)
+
+
+def test_climb_is_in_feet():
+    edges = [{**BIKE_PATH, "mean_elevation": m} for m in (10, 20, 15, 25)]
+    assert measure(edges)["climb_ft"] == pytest.approx(20 / 0.3048)

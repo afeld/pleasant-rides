@@ -1,19 +1,20 @@
 """Scores routes against the README's working definition of "pleasant".
 
-Road attributes come from OpenStreetMap, via map matching (see `map_matching` and `edges`). Scenery, points of interest, and remoteness come from Overture Maps (see `surroundings`). Most metrics are the share of the route's distance that meets a condition; turns, intersections, and sights are counted per km.
+Road attributes come from OpenStreetMap, via map matching (see `map_matching` and `edges`). Scenery, points of interest, and remoteness come from Overture Maps (see `surroundings`). Most metrics are the share of the route's distance that meets a condition; turns, intersections, and sights are counted per mile.
 """
 
 from dataclasses import dataclass
 
 from . import surroundings
 from .edges import (
-    FAST_KPH,
     ROUGH_SURFACES,
+    SLOW_MPH,
     STEEP_GRADE,
     TURN_DEGREES,
     climb,
     intersections,
     is_low_traffic,
+    is_slow,
     is_walking,
     posted,
     roads,
@@ -26,12 +27,13 @@ from .metrics import (
     Away,
     Detour,
     Near,
-    PassesPerKm,
-    PerKm,
+    PassesPerMile,
+    PerMile,
     Ride,
     Share,
     Total,
 )
+from .units import METERS_PER_FOOT, METERS_PER_MILE
 
 # in the order they're shown, grouped as in the README
 METRICS = [
@@ -49,35 +51,35 @@ METRICS = [
     Near(
         "green",
         "Green",
-        f"Within {surroundings.GREEN_M} m of a park, woods, grass, or wetland",
+        f"Within {surroundings.GREEN_FT} ft of a park, woods, grass, or wetland",
         weight=2,
         layer="green",
-        distance=surroundings.GREEN_M,
+        distance=surroundings.GREEN_FT * METERS_PER_FOOT,
     ),
     Near(
         "waterside",
         "Waterside",
-        f"Within {surroundings.WATER_M} m of a river, lake, or the ocean",
+        f"Within {surroundings.WATER_FT} ft of a river, lake, or the ocean",
         weight=1,
         layer="water",
-        distance=surroundings.WATER_M,
+        distance=surroundings.WATER_FT * METERS_PER_FOOT,
     ),
-    PassesPerKm(
-        "sights_per_km",
-        "Sights/km",
-        f"Landmarks, museums, parks, and the like within {surroundings.SIGHT_M} m",
+    PassesPerMile(
+        "sights_per_mi",
+        "Sights/mi",
+        f"Landmarks, museums, parks, and the like within {surroundings.SIGHT_FT} ft",
         weight=1,
         layer="sights",
-        distance=surroundings.SIGHT_M,
-        half_score=0.5,
+        distance=surroundings.SIGHT_FT * METERS_PER_FOOT,
+        half_score=0.8,
     ),
     Away(
         "quiet",
         "Quiet",
-        f"Not within {surroundings.QUIET_M} m of a motorway, trunk, or primary road",
+        f"Not within {surroundings.QUIET_FT} ft of a motorway, trunk, or primary road",
         weight=1,
         layer="busy_roads",
-        distance=surroundings.QUIET_M,
+        distance=surroundings.QUIET_FT * METERS_PER_FOOT,
     ),
     # easy
     Share(
@@ -87,14 +89,14 @@ METRICS = [
         weight=2,
         condition=lambda e: e.get("max_upward_grade", 0) < STEEP_GRADE,
     ),
-    Total("climb_m", "Climb (m)", compute=climb),
-    PerKm(
-        "turns_per_km",
-        "Turns/km",
+    Total("climb_ft", "Climb (ft)", compute=climb),
+    PerMile(
+        "turns_per_mi",
+        "Turns/mi",
         f"Changes in direction over {TURN_DEGREES}°",
         weight=1,
         count=turns,
-        half_score=1,
+        half_score=1.5,
     ),
     Share(
         "smooth",
@@ -118,20 +120,20 @@ METRICS = [
         weight=3,
         condition=is_low_traffic,
     ),
-    PerKm(
-        "intersections_per_km",
-        "Intersections/km",
+    PerMile(
+        "intersections_per_mi",
+        "Intersections/mi",
         "With roads open to cars, other than service roads",
         weight=1,
         count=intersections,
-        half_score=3,
+        half_score=5,
     ),
     Share(
         "slow",
         "Slow",
-        f"Speed limit under {FAST_KPH} km/h, of roads with a known limit",
+        f"Speed limit {SLOW_MPH} mph or under, of roads with a known limit",
         weight=2,
-        condition=lambda e: e["speed_limit"] < FAST_KPH,
+        condition=is_slow,
         of=posted,
     ),
     Average(
@@ -147,10 +149,10 @@ METRICS = [
     Near(
         "near_help",
         "Near help",
-        f"Within {surroundings.HELP_M} m (a ~15 minute walk) of a business or other place",
+        f"Within {surroundings.HELP_MI} mi (a ~15 minute walk) of a business or other place",
         weight=1,
         layer="help",
-        distance=surroundings.HELP_M,
+        distance=surroundings.HELP_MI * METERS_PER_MILE,
     ),
     Share(
         "bike_network",
