@@ -16,20 +16,37 @@ MAPILLARY_JS = "https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.js"
 MAPILLARY_CSS = "https://unpkg.com/mapillary-js@4.1.2/dist/mapillary.css"
 
 _GEOD = Geod(ellps="WGS84")
+METERS_PER_MILE = 1609.344
+# stretches longer than this without a photo are pointed out; steps are normally 25 m apart, and photos up to ~45 m
+GAP_M = 150
+
+
+def route_miles(points: Sequence[Point]):
+    return _route_m(points) / METERS_PER_MILE
+
+
+def _route_m(points: Sequence[Point]):
+    return _GEOD.line_length([p.lon for p in points], [p.lat for p in points])
+
+
+def _gap_mi(meters: float):
+    """`meters` in miles if it's long enough to point out, else None."""
+    return round(meters / METERS_PER_MILE, 1) if meters > GAP_M else None
 
 
 def step_data(
     points: Sequence[Point], steps: Sequence[Step], segments: Sequence[Segment]
 ):
-    """What the browser needs for each step, including the color and description of the road segment it's on."""
-    route_m = _GEOD.line_length([p.lon for p in points], [p.lat for p in points])
+    """What the browser needs for each step, including the color and description of the road segment it's on, and how far it is to the photos before and after it (or the ends of the route) when there's a gap without any."""
+    route_m = _route_m(points)
+    alongs = [step.along_m for step in steps]
     total = sum(s.length for s in segments)
     # where each segment ends, as a share of the route, since their lengths only roughly add up to the route's (see `map.split_by_lengths()`)
     ends = [length / total for length in accumulate(s.length for s in segments)]
     colors = segment_colors()
     data = []
     i = 0
-    for step in steps:
+    for n, step in enumerate(steps):
         share = step.along_m / route_m if route_m else 0
         while i < len(ends) - 1 and ends[i] < share:
             i += 1
@@ -39,12 +56,16 @@ def step_data(
                 "id": step.photo_id,
                 "lat": round(step.point.lat, 6),
                 "lon": round(step.point.lon, 6),
-                "along_mi": round(step.along_m / 1609.344, 2),
+                "along_mi": round(step.along_m / METERS_PER_MILE, 2),
                 "bearing": round(step.bearing),
                 "pano": step.is_pano,
                 "compass": round(step.compass_angle),
                 "color": None if segment.score is None else colors(segment.score),
                 "info": segment.description,
+                "gap_behind_mi": _gap_mi(step.along_m - (alongs[n - 1] if n else 0)),
+                "gap_ahead_mi": _gap_mi(
+                    (alongs[n + 1] if n + 1 < len(steps) else route_m) - step.along_m
+                ),
             }
         )
     return data
@@ -66,6 +87,7 @@ class RoutePreview(MacroElement):
             .route-preview.open { display: flex; }
             .route-preview-viewer { flex: 1; position: relative; min-height: 0; background: #eee; }
             .route-preview-info { padding: 6px 10px 0; }
+            .route-preview-gap { color: #8a4b00; font-weight: 600; }
             .route-preview-swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; border-radius: 2px; vertical-align: -1px; }
             .route-preview-controls { display: flex; align-items: center; gap: 8px; padding: 6px 10px 10px; }
             .route-preview-controls button { min-width: 44px; min-height: 44px; font-size: 18px; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer; }
@@ -79,6 +101,7 @@ class RoutePreview(MacroElement):
         {% macro script(this, kwargs) %}
         (function (map) {
             var steps = {{ this.steps|tojson }};
+            var routeMi = {{ this.route_mi|tojson }};
             var token = {{ this.token|tojson }};
             var index = 0, viewer = null, loading = null, pending = null;
 
@@ -150,6 +173,20 @@ class RoutePreview(MacroElement):
                 });
             }
 
+            // stretches without photos, which stepping jumps over
+            function gapNote(step) {
+                var notes = [];
+                if (step.gap_behind_mi) notes.push("No photos for the " + (index === 0 ? "first " : "") + step.gap_behind_mi + " mi" + (index === 0 ? "" : " before here"));
+                if (step.gap_ahead_mi) notes.push("No photos for the " + (index === steps.length - 1 ? "last " : "next ") + step.gap_ahead_mi + " mi");
+                return notes.length ? '<div class="route-preview-gap">' + notes.join("; ") + "</div>" : "";
+            }
+
+            function label(button, action, gapMi) {
+                var text = gapMi && !button.disabled ? action + ", skipping " + gapMi + " mi without photos" : action;
+                button.setAttribute("aria-label", text);
+                button.title = text;
+            }
+
             function show(i) {
                 index = Math.max(0, Math.min(steps.length - 1, i));
                 var step = steps[index];
@@ -157,7 +194,9 @@ class RoutePreview(MacroElement):
                 back.disabled = index === 0;
                 forward.disabled = index === steps.length - 1;
                 var swatch = step.color ? '<span class="route-preview-swatch" style="background:' + step.color + '"></span>' : "";
-                info.innerHTML = swatch + (step.info || "") + " &middot; mile " + step.along_mi.toFixed(1) + " of " + steps[steps.length - 1].along_mi.toFixed(1);
+                info.innerHTML = swatch + (step.info || "") + " &middot; mile " + step.along_mi.toFixed(1) + " of " + routeMi.toFixed(1) + gapNote(step);
+                label(back, "Step back", step.gap_behind_mi);
+                label(forward, "Step forward", step.gap_ahead_mi);
                 marker.setLatLng([step.lat, step.lon]).addTo(map);
                 marker.getElement().firstChild.style.transform = "rotate(" + (step.bearing - 90) + "deg)";
                 keepVisible(marker.getLatLng());
@@ -242,11 +281,14 @@ class RoutePreview(MacroElement):
         {% endmacro %}
     """)
 
-    def __init__(self, steps: list[dict], token: str, tolerance: int = 30):
+    def __init__(
+        self, steps: list[dict], token: str, route_mi: float, tolerance: int = 30
+    ):
         super().__init__()
         self._name = "RoutePreview"
         self.steps = steps
         self.token = token
+        self.route_mi = route_mi
         self.js_url = MAPILLARY_JS
         self.css_url = MAPILLARY_CSS
         # how close (in pixels) a click needs to be to a step

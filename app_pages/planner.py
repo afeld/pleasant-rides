@@ -18,7 +18,7 @@ from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey
-from pleasant_rides.route_preview import RoutePreview, step_data
+from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
 from pleasant_rides.scoring import METRICS, Scorecard, edge_scores, score
 from pleasant_rides.surroundings import Surroundings
 from pleasant_rides.trips import TRIPS
@@ -181,7 +181,9 @@ async def street_preview(route: Route, segments: list[Segment]):
     if not steps:
         warnings.caption("Mapillary doesn't have street-level photos along this route.")
         return None
-    return RoutePreview(step_data(route.points, steps, segments), token)
+    return RoutePreview(
+        step_data(route.points, steps, segments), token, route_miles(route.points)
+    )
 
 
 async def score_routes(routes: list[Route]):
