@@ -6,6 +6,8 @@ primary_region = "ewr"
 [env]
   # see pleasant_rides/login.py
   REQUIRE_LOGIN = "1"
+  # our own BRouter (see brouter/fly.toml), over Fly's private network, rather than the busy public one
+  BROUTER_URL = "http://pleasant-rides-brouter.flycast/brouter"
 
 [http_service]
   internal_port = 8080

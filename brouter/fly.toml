@@ -1,0 +1,16 @@
+# BRouter for the deployed app, reachable only from inside the Fly organization through Flycast (http://pleasant-rides-brouter.flycast), since it has no public IP. See "Deploying" in the README. Reference: https://fly.io/docs/reference/configuration/
+app = "pleasant-rides-brouter"
+# next to the app
+primary_region = "ewr"
+
+[http_service]
+  internal_port = 17777
+  # Flycast is plain HTTP inside Fly's private network
+  force_https = false
+  # stop when idle and start on the next request; that goes through Fly's proxy, so it needs the Flycast address rather than .internal
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "2gb"

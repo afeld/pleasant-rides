@@ -90,7 +90,7 @@ To stop it, run `docker compose down`. To wipe it, including the downloaded data
 
 ## Deploying
 
-The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. Deployed copies require signing in with Google, and only the sign-in client's test users get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
+The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. It routes with its own BRouter, a second Fly app (`pleasant-rides-brouter`, in [`brouter/`](brouter/)) that has no public IP: the app reaches it over Fly's private network through [Flycast](https://fly.io/docs/networking/flycast/), which also starts it on demand. Deployed copies require signing in with Google, and only the sign-in client's test users get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
 
 1. Apply the Terraform config, signed in to gcloud as an owner of the project (`--no-activate` leaves your other gcloud configurations alone):
 
@@ -142,6 +142,20 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
 
    ```sh
    fly certs add pleasant-rides.afeld.me
+   ```
+
+1. Create and deploy BRouter, with only a private IP. It doesn't deploy on pushes. To get fresh routing data, which is built into the image, redeploy it with `--no-cache`.
+
+   ```sh
+   fly apps create pleasant-rides-brouter
+   ```
+
+   ```sh
+   fly ips allocate-v6 --private --app pleasant-rides-brouter
+   ```
+
+   ```sh
+   fly deploy brouter --ha=false
    ```
 
 1. Set the secrets: the API keys from `.env` (only the `*_KEY` variables, since e.g. `BROUTER_URL` points at your local BRouter), and `secrets.toml`, which Fly needs base64-encoded:
