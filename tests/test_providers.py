@@ -1,5 +1,8 @@
 import asyncio
 import json
+import signal
+import subprocess
+from pathlib import Path
 
 import httpx
 import pytest
@@ -7,7 +10,7 @@ import pytest
 from pleasant_rides.http_client import USER_AGENT
 from pleasant_rides.models import Point
 from pleasant_rides.politeness import ProviderError, is_rate_limited, is_retryable
-from pleasant_rides.providers import brouter, iter_routes, redact
+from pleasant_rides.providers import apple, brouter, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey, Provider
 from pleasant_rides.providers.brouter import BRouter
 from pleasant_rides.providers.valhalla import PLEASANT_OPTIONS, Valhalla
@@ -243,3 +246,44 @@ def test_brouter_uploads_again_after_a_failure(monkeypatch, tmp_path):
     uploads = [r for r in made if r.url.path.endswith("/profile")]
     assert len(uploads) == 2
     assert made[-1].url.params["profile"] == "custom_3"
+
+
+def _apple_helper(monkeypatch: pytest.MonkeyPatch, *return_codes: int):
+    """Has the Apple Maps helper exit with `return_codes` in turn, then succeed; returns its list of calls."""
+    calls = []
+
+    async def run(*args: str, timeout: float):
+        calls.append(args)
+        if len(calls) <= len(return_codes):
+            raise subprocess.CalledProcessError(return_codes[len(calls) - 1], args)
+        return json.dumps(
+            [{"name": "Main St", "advisories": [], "points": [[40.0, -74.0]]}]
+        ).encode()
+
+    async def binary():
+        return Path("apple")
+
+    monkeypatch.setattr(apple, "_run", run)
+    monkeypatch.setattr(apple, "_binary", binary)
+    return calls
+
+
+def test_apple_retries_once_after_a_crash(monkeypatch: pytest.MonkeyPatch):
+    calls = _apple_helper(monkeypatch, -signal.SIGSEGV)
+    routes = asyncio.run(apple.Apple().get_routes(ORIGIN, DESTINATION))
+    assert len(calls) == 2
+    assert routes[0].label == "via Main St"
+
+
+def test_apple_doesnt_retry_errors(monkeypatch: pytest.MonkeyPatch):
+    calls = _apple_helper(monkeypatch, 1)
+    with pytest.raises(subprocess.CalledProcessError):
+        asyncio.run(apple.Apple().get_routes(ORIGIN, DESTINATION))
+    assert len(calls) == 1
+
+
+def test_apple_crashing_twice(monkeypatch: pytest.MonkeyPatch):
+    calls = _apple_helper(monkeypatch, -signal.SIGSEGV, -signal.SIGSEGV)
+    with pytest.raises(subprocess.CalledProcessError):
+        asyncio.run(apple.Apple().get_routes(ORIGIN, DESTINATION))
+    assert len(calls) == 2

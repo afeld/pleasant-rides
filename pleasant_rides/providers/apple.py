@@ -41,14 +41,20 @@ class Apple(Provider):
     name = "Apple Maps"
 
     async def fetch(self, origin: Point, destination: Point):
-        stdout = await _run(
+        args = (
             str(await _binary()),
             str(origin.lat),
             str(origin.lon),
             str(destination.lat),
             str(destination.lon),
-            timeout=60,
         )
+        try:
+            stdout = await _run(*args, timeout=60)
+        except subprocess.CalledProcessError as e:
+            # a negative code is the signal that killed it: MapKit occasionally segfaults on a request that works when tried again
+            if e.returncode >= 0:
+                raise
+            stdout = await _run(*args, timeout=60)
         routes = json.loads(stdout)
         return [(_label(r), r["points"]) for r in routes]
 
