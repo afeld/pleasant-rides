@@ -6,7 +6,7 @@ from typing import Any
 
 from . import http_client
 from .models import Point
-from .politeness import status_error, wait_turn
+from .politeness import TIMEOUT_S, status_error, wait_turn
 from .providers import valhalla
 
 # a road segment from Valhalla's trace_attributes
@@ -48,7 +48,7 @@ async def get_edges(points: Sequence[Point]):
     }
     await wait_turn(valhalla.SERVER, valhalla.REQUEST_INTERVAL_S)
     async with http_client.client() as client:
-        response = await client.post(URL, json=body, timeout=120.0)
+        response = await client.post(URL, json=body, timeout=TIMEOUT_S)
     if response.is_error:
         raise status_error("Valhalla", response, response.json().get("error"))
     return response.json()["edges"]
