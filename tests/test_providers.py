@@ -13,6 +13,7 @@ from pleasant_rides.politeness import ProviderError, is_rate_limited, is_retryab
 from pleasant_rides.providers import apple, brouter, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey, Provider
 from pleasant_rides.providers.brouter import BRouter
+from pleasant_rides.providers.graphhopper import GraphHopper
 from pleasant_rides.providers.valhalla import PLEASANT_OPTIONS, Valhalla
 
 ORIGIN = Point(40.0, -74.0)
@@ -48,6 +49,11 @@ def requests(monkeypatch):
         made.append(request)
         if request.url.path.endswith("/profile"):
             return httpx.Response(200, json={"profileid": "custom_123"})
+        if request.url.path.endswith("/route"):
+            # GraphHopper's
+            return httpx.Response(
+                200, json={"paths": [{"points": GEOJSON["features"][0]["geometry"]}]}
+            )
         return httpx.Response(200, json=GEOJSON)
 
     client = httpx.AsyncClient
@@ -132,6 +138,28 @@ def test_brouter_url(requests, monkeypatch, tmp_path):
     upload, route = requests
     assert str(upload.url) == "http://localhost:17777/brouter/profile"
     assert route.url.host == "localhost"
+
+
+def test_graphhopper_url(requests, monkeypatch):
+    monkeypatch.delenv("GRAPHHOPPER_URL", raising=False)
+    monkeypatch.setenv("GRAPHHOPPER_API_KEY", "s3cret")
+    hosted = GraphHopper()
+    assert hosted.request_interval_s > 0
+    hosted_key = hosted.cache_key
+    asyncio.run(hosted.get_routes(ORIGIN, DESTINATION))
+
+    monkeypatch.setenv("GRAPHHOPPER_URL", "http://localhost:8989")
+    monkeypatch.delenv("GRAPHHOPPER_API_KEY")
+    local = GraphHopper()
+    # no need to be polite to your own server, which doesn't need a key either
+    assert local.request_interval_s == 0
+    assert local.cache_key != hosted_key
+    routes = asyncio.run(local.get_routes(ORIGIN, DESTINATION))
+    assert routes[0].points[-1] == DESTINATION
+
+    hosted_request, local_request = requests
+    assert str(hosted_request.url) == "https://graphhopper.com/api/1/route?key=s3cret"
+    assert str(local_request.url) == "http://localhost:8989/route"
 
 
 def test_valhalla_sends_its_costing_options(requests):
