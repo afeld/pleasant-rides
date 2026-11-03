@@ -131,7 +131,7 @@ def test_compare():
     overlap = b.overlap(compared)
     assert overlap.loc["b", "a"] == pytest.approx(50 / 150, rel=0.01)
     assert b.lengths_by_category(compared).loc[b.PROTECTED, "b"] == pytest.approx(
-        0.15, rel=0.01
+        150 / 1609.344, rel=0.01
     )
 
 

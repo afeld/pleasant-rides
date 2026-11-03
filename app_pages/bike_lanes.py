@@ -5,6 +5,7 @@ import streamlit as st
 
 from pleasant_rides import bike_lanes
 from pleasant_rides.cached import compare_bike_lanes
+from pleasant_rides.units import METERS_PER_MILE
 
 st.title("Bike lanes")
 st.caption(
@@ -29,7 +30,7 @@ with st.container(horizontal=True):
     for source, frame in compared.items():
         st.metric(
             source,
-            f"{frame['length_m'].sum() / 1000:,.0f} km",
+            f"{frame['length_m'].sum() / METERS_PER_MILE:,.0f} mi",
             help=f"Data as of {as_of[source]}",
             border=True,
         )
@@ -48,10 +49,10 @@ st.caption(
 st.dataframe(
     bike_lanes.lengths_by_category(compared),
     column_config={
-        source: st.column_config.NumberColumn(f"{source} (km)", format="%.0f")
+        source: st.column_config.NumberColumn(f"{source} (mi)", format="%.0f")
         for source in compared
     },
-    alt="Kilometers of bike lanes of each type in each source",
+    alt="Miles of bike lanes of each type in each source",
 )
 
 st.subheader("Overlap")

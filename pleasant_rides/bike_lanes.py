@@ -13,6 +13,7 @@ import pyarrow.compute as pc
 import shapely
 
 from . import http_client, overture, politeness
+from .units import METERS_PER_MILE
 
 OSM = "OpenStreetMap"
 OVERTURE = "Overture"
@@ -280,7 +281,7 @@ def _samples(geometries: np.ndarray):
 
 
 def lengths_by_category(compared: Mapping[str, pd.DataFrame]):
-    """Kilometers of lanes in each category (rows), per source (columns)."""
+    """Miles of lanes in each category (rows), per source (columns)."""
     lengths = pd.concat(
         [
             frame[["category", "length_m"]].assign(source=source)
@@ -288,7 +289,7 @@ def lengths_by_category(compared: Mapping[str, pd.DataFrame]):
         ]
     ).pivot_table(index="category", columns="source", values="length_m", aggfunc="sum")
     return (
-        (lengths / 1000)
+        (lengths / METERS_PER_MILE)
         .reindex(index=CATEGORIES, columns=list(compared))
         .fillna(0)
         .rename_axis(index="Type", columns=None)
