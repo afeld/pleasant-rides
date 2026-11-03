@@ -15,7 +15,7 @@ dependencies = [
     "pyproj>=3.7.1",
     "shapely>=2.1.2",
     # 1.64.0 added st.cache_data support for async functions
-    "streamlit>=1.64.0",
+    "streamlit[auth]>=1.64.0",
 ]
 
 # read by both Pylance and the Pyright CLI
