@@ -74,7 +74,7 @@ async def iter_routes(
     async def run(name: str):
         try:
             return name, await fetch(PROVIDERS[name], origin, destination), None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return name, None, redact(f"{name}: skipped ({type(e).__name__}: {e})")
 
     for next_done in asyncio.as_completed([run(name) for name in PROVIDERS]):

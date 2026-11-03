@@ -200,7 +200,7 @@ async def street_preview(route: Route, segments: list[Segment]):
     try:
         with st.spinner("Finding street-level photos…"):
             steps = await route_steps(route.points)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         st.warning(
             redact(
                 f"Couldn't get street-level photos from Mapillary ({type(e).__name__}: {e})"
@@ -244,7 +244,7 @@ async def score_routes(routes: list[Route]):
 async def surroundings_or_warn(task: asyncio.Task[Surroundings]):
     try:
         return await task
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
         st.warning(
             f"Couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({type(error).__name__}: {error})"
         )
