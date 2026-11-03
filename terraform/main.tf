@@ -5,7 +5,7 @@ terraform {
     google = {
       source = "hashicorp/google"
     }
-    # for the Routes API's quota (see budget.tf), which only it can set
+    # for the Routes API's quota (see quota.tf), which only it can set
     google-beta = {
       source = "hashicorp/google-beta"
     }
@@ -33,7 +33,7 @@ locals {
     # Terraform needs these to manage the project and its Maps key, so they're turned on with gcloud first (see the README)
     "cloudresourcemanager.googleapis.com",
     "apikeys.googleapis.com",
-    # for the budget (see budget.tf)
+    # for the budget (see quota.tf)
     "billingbudgets.googleapis.com",
     # the Google provider (pleasant_rides/providers/google.py)
     "routes.googleapis.com",
