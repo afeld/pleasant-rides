@@ -17,4 +17,8 @@ def require_login():
         st.stop()
     if not st.user.is_logged_in:
         st.button("Sign in with Google", on_click=st.login)
+        # Google shows its own error to anyone who isn't a test user, which can't be customized, so this is the place to say how to get access
+        st.caption(
+            "Access is by invitation. To get it, send Aidan the email address of the Google account you'll sign in with."
+        )
         st.stop()
