@@ -9,6 +9,9 @@ from streamlit.runtime.caching.storage.local_disk_cache_storage import (
 )
 
 from pleasant_rides import cached
+from pleasant_rides.metrics import Ride
+from pleasant_rides.models import Point
+from pleasant_rides.scoring import Scorecard
 
 calls: list[int] = []
 
@@ -62,3 +65,25 @@ def test_recomputes_an_empty_entry_async(cache_dir: Path):
 
     assert asyncio.run(cached.call_async(triple, 2)) == 6
     assert calls == [2, 2]
+
+
+def test_score_ride_is_cached_until_the_scoring_code_changes(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    scored = []
+
+    def score(ride: Ride):
+        scored.append(ride)
+        return Scorecard({}, 50.0)
+
+    monkeypatch.setattr(cached.scoring, "score", score)
+    monkeypatch.setattr(cached, "_latest_release", lambda: "2026-01-01.0")
+    cached._score.clear()
+    ride = Ride((Point(40.0, -74.0), Point(40.01, -74.0)), [], None)
+
+    assert cached.score_ride(ride).total == 50
+    cached.score_ride(ride)
+    assert len(scored) == 1
+    monkeypatch.setattr(cached, "_SCORING_CODE", "changed")
+    cached.score_ride(ride)
+    assert len(scored) == 2

@@ -11,6 +11,7 @@ from pleasant_rides.cached import (
     get_edges,
     get_surroundings,
     route_steps,
+    score_ride,
 )
 from pleasant_rides.edges import describe
 from pleasant_rides.map import Segment, build_map
@@ -19,7 +20,7 @@ from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey
 from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
-from pleasant_rides.scoring import METRICS, Scorecard, edge_scores, score
+from pleasant_rides.scoring import METRICS, Scorecard, edge_scores
 from pleasant_rides.surroundings import Surroundings
 from pleasant_rides.trips import TRIPS
 
@@ -230,7 +231,7 @@ async def score_routes(routes: list[Route]):
                 )
             )
         else:
-            scored.append((route, score(Ride(route.points, result, surroundings))))
+            scored.append((route, score_ride(Ride(route.points, result, surroundings))))
     return scored
 
 

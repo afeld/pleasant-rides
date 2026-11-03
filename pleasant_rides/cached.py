@@ -1,7 +1,7 @@
 """Cached versions of the API calls, shared by the app's pages, so reruns don't hit the providers again.
 
 They're persisted to disk, so they also survive restarting the app; use "Clear cache" from the app's ⋮ menu to refetch.
-Failures aren't cached (exceptions propagate), so they get retried on the next run, except ones that would only happen again (see `_unless_failed()`). Entries that can't be read are recomputed (see `call()`). Scores aren't cached, only the data they're computed from, so that changes to the scoring take effect.
+Failures aren't cached (exceptions propagate), so they get retried on the next run, except ones that would only happen again (see `_unless_failed()`). Entries that can't be read are recomputed (see `call()`). Scores are only cached in memory, keyed by the code that computes them, so that changes to the scoring take effect (see `score_ride()`).
 """
 
 import hashlib
@@ -16,13 +16,18 @@ from streamlit.runtime.caching.cache_utils import CachedFunc
 
 from . import (
     bike_lanes,
+    edges,
     map_matching,
+    metrics,
     overture,
     providers,
+    scoring,
     street_photos,
     surroundings,
+    units,
 )
 from .geocode import geocode_place
+from .metrics import Ride
 from .models import Point
 from .politeness import ProviderError, is_permanent
 from .providers.base import Provider
@@ -185,6 +190,31 @@ _nyc_bike_lanes = st.cache_data(
 _cached_nyc_boundary = st.cache_data(show_spinner=False, persist="disk")(
     bike_lanes.fetch_boundary
 )
+
+
+# the code of everything that goes into a score, since Streamlit only notices changes to a cached function's own code
+_SCORING_CODE = hashlib.sha256(
+    "".join(
+        inspect.getsource(m) for m in (scoring, metrics, edges, surroundings, units)
+    ).encode()
+).hexdigest()
+
+
+# `_ride` is left out of the key (its points and whether it has surroundings stand in for it), since hashing its edges and surroundings would take about as long as scoring. In memory rather than on disk, since the scores are cheap to recompute once, and that's what happens after restarting the app.
+@st.cache_data(show_spinner=False, max_entries=1000)
+def _score(code: str, release: str, points: tuple, has_surroundings: bool, _ride: Ride):
+    return scoring.score(_ride)
+
+
+def score_ride(ride: Ride):
+    """Scoring every route against its surroundings takes a few seconds, so otherwise every rerun (like selecting a route) would."""
+    return _score(
+        _SCORING_CODE,
+        _latest_release(),
+        tuple(ride.points),
+        ride.surroundings is not None,
+        ride,
+    )
 
 
 # by name, since `_overture_bike_lanes()` calls it, and changing its code would change its cache key
