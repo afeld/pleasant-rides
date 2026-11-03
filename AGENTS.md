@@ -24,3 +24,7 @@ The routing, map-matching, and geocoding services this app calls are often free 
 - Back off on rate limits (e.g. BRouter's "403 Please, retry later!"), and stop sending a server requests once it's rate-limited you.
 - Don't retry errors that won't change, like a bad request or a feature that needs a paid plan.
 - Prefer cached results over refetching, and avoid changes that force a full refetch (e.g. changing a cached function's signature) unless needed.
+
+## Fly.io
+
+- If a Fly.io API response, CLI command, or docs page is wrong or differs from the docs, report it once with `POST https://api.fly.io/api/v1/feedback` (see [Send feedback](https://fly.io/agent-ready.md#send-feedback)). Include the `fly-request-id` response header, and never include secrets.
