@@ -17,6 +17,8 @@ class LastRun:
     results: Results
     finished: datetime
     seconds: float
+    # False while it's still running, or if it was cut short (e.g. by the app restarting), in which case the trips it didn't get to are missing. Runs saved before this was added were complete.
+    complete: bool = True
 
 
 class _NotRun(Exception):

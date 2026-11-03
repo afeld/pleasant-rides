@@ -14,7 +14,7 @@ from ..providers import fetch_routes_timed, valhalla
 from ..providers.base import Provider
 from ..surroundings import Surroundings
 from ..trips import TRIPS, short
-from .retries import Backoffs
+from .retries import Backoffs, describe
 from .variants import VARIANTS
 
 # returns the routes and how many seconds the provider took
@@ -167,5 +167,9 @@ class _Run:
         )
         if isinstance(edges, str):
             return edges
-        card = self.score(Ride(route, edges, around))
+        # so that a route the scoring can't handle only fails its own cell, rather than the whole run
+        try:
+            card = self.score(Ride(route, edges, around))
+        except Exception as e:  # noqa: BLE001
+            return describe(e)
         return TripScore(card.total, total_km(edges), seconds)

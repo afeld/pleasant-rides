@@ -14,6 +14,11 @@ RETRY_AFTER_S = 10
 T = TypeVar("T")
 
 
+def describe(error: Exception):
+    """An error message for the results, e.g. "ProviderError: BRouter 500: …"."""
+    return f"{type(error).__name__}: {error}"
+
+
 class Backoffs:
     """Which servers have asked for fewer requests during a run, so they don't get any more."""
 
@@ -37,7 +42,7 @@ class Backoffs:
             except MissingAPIKey as e:
                 return f"skipped ({e})"
             except Exception as e:  # noqa: BLE001
-                error = f"{type(e).__name__}: {e}"
+                error = describe(e)
                 if is_rate_limited(e):
                     self.reasons[server] = (
                         f"skipped, since {server} asked for fewer requests ({error})"

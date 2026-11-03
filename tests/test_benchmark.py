@@ -267,3 +267,41 @@ def test_scores_with_the_given_scorer():
     )
     assert len(scored) == len(TRIPS)
     assert set(results.trips[VALHALLA].values()) == {TripScore(42, 1.0, 1.5)}
+
+
+def test_scoring_failures_are_per_route():
+    first_origin = next(iter(TRIPS.values()))[0]
+
+    def score(ride: Ride):
+        if ride.points[0] == first_origin:
+            raise ValueError("bad route")
+        return Scorecard({}, 42)
+
+    results = asyncio.run(
+        run_variants([VALHALLA], fetch, get_edges, no_surroundings, score=score)
+    )
+    first, *rest = results.trips[VALHALLA].values()
+    assert first == "ValueError: bad route"
+    assert all(isinstance(r, TripScore) for r in rest)
+
+
+def test_table_row_shows_errors():
+    trips: dict[str, TripResult] = {trip: TripScore(80, 10, 1) for trip in TRIPS}
+    long, urban, *_ = TRIPS
+    trips[long] = "RuntimeError: down"
+    trips[urban] = "skipped (set SOME_API_KEY)"
+    row = table_row(VALHALLA, trips)
+    assert (
+        row["Errors"] == "Long: RuntimeError: down; Urban: skipped (set SOME_API_KEY)"
+    )
+
+
+def test_table_row_has_no_errors_when_every_trip_worked():
+    row = table_row(VALHALLA, {trip: TripScore(80, 10, 1) for trip in TRIPS})
+    assert row["Errors"] is None
+
+
+def test_table_row_redacts_errors(monkeypatch):
+    monkeypatch.setenv("SOME_API_KEY", "s3cret")
+    trips: dict[str, TripResult] = {trip: "ProviderError: s3cret" for trip in TRIPS}
+    assert "s3cret" not in table_row(VALHALLA, trips)["Errors"]

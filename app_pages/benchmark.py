@@ -16,7 +16,6 @@ from pleasant_rides.cached import (
     get_surroundings,
     score_ride,
 )
-from pleasant_rides.providers import redact
 from pleasant_rides.trips import TRIPS, short
 
 st.title("Benchmark")
@@ -58,6 +57,11 @@ COLUMNS = {
         help="Seconds the provider took to return routes, in total across the trips",
         format="%.1f",
     ),
+    "Errors": st.column_config.TextColumn(
+        "Errors",
+        width="medium",
+        help="Why trips weren't scored. Failures aren't cached, so they're retried on the next run.",
+    ),
     **{
         f"{short(t)} mi": st.column_config.NumberColumn(
             f"{short(t)} mi", help=t, format="%.1f"
@@ -86,44 +90,54 @@ def show_table(names: list[str], results: Results):
 
 
 def run(names: list[str]):
-    """Runs the benchmark, showing the results as they come in, and saves them."""
+    """Runs the benchmark, showing the results as they come in. Saves them after each trip is scored, so that if the run is cut short (e.g. by the app restarting), the trips done so far still show."""
     done = 0
+    started = time.perf_counter()
+    so_far: Results | None = None
+
+    def save(results: Results, complete: bool):
+        finished = LastRun(
+            names,
+            results,
+            datetime.now().astimezone(),
+            time.perf_counter() - started,
+            complete,
+        )
+        last_run.save(finished)
+        return finished
 
     def on_step(message: str, results: Results):
-        nonlocal done
+        nonlocal done, so_far
         done += 1
+        so_far = results
         progress.progress(done / steps(names), text=message)
         # trips appear in the table as they're scored
         if message.startswith("Scored"):
             show_table(names, results)
+            save(results, complete=False)
 
-    started = time.perf_counter()
-    results = asyncio.run(
-        run_variants(
-            names,
-            fetch_routes_timed,
-            get_edges,
-            get_surroundings,
-            on_step,
-            score_ride,
+    try:
+        results = asyncio.run(
+            run_variants(
+                names,
+                fetch_routes_timed,
+                get_edges,
+                get_surroundings,
+                on_step,
+                score_ride,
+            )
         )
-    )
-    progress.empty()
-    finished = LastRun(
-        names, results, datetime.now().astimezone(), time.perf_counter() - started
-    )
-    last_run.save(finished)
-    return finished
+    except Exception as e:  # noqa: BLE001
+        # failures of the providers' calls are already caught per variant and trip, so this would be a bug; the results so far are kept rather than lost with it
+        st.exception(e)
+        return save(so_far, complete=False) if so_far else None
+    finally:
+        progress.empty()
+    return save(results, complete=True)
 
 
-def show_errors(names: list[str], results: Results):
+def show_surroundings_errors(results: Results):
     errors = [
-        redact(f"{name}, {trip}: {result}")
-        for name in names
-        for trip, result in results.trips[name].items()
-        if isinstance(result, str)
-    ]
-    errors += [
         f"{trip}: couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({error})"
         for trip, error in results.surroundings_errors.items()
     ]
@@ -140,8 +154,13 @@ if not latest:
     st.stop()
 # leaving out variants that have been renamed or removed since
 shown = [name for name in latest.names if name in VARIANTS]
+unfinished = (
+    ""
+    if latest.complete
+    else " It didn't finish, so the trips after those shown are missing."
+)
 summary.caption(
-    f"Last run {latest.finished:%b %-d at %-I:%M %p}, in {latest.seconds:.0f} s, reusing cached routes, scoring data, and scores where possible. The routing times are from when the routes were fetched."
+    f"Last run {latest.finished:%b %-d at %-I:%M %p}, in {latest.seconds:.0f} s, reusing cached routes, scoring data, and scores where possible. The routing times are from when the routes were fetched.{unfinished}"
 )
 show_table(shown, latest.results)
-show_errors(shown, latest.results)
+show_surroundings_errors(latest.results)

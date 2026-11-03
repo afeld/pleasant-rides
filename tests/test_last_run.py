@@ -44,3 +44,18 @@ def test_nothing_saved_for_other_variants():
     last_run._stored.clear()
     last_run.save(a_run(80.5))
     assert last_run.load(NAMES[:1]) is None
+
+
+def test_runs_are_complete_unless_saved_as_partial():
+    assert a_run(80.5).complete
+    partial = LastRun(NAMES, a_run(80.5).results, a_run(80.5).finished, 1, False)
+    last_run._stored.clear()
+    last_run.save(partial)
+    assert last_run.load(NAMES) == partial
+
+
+def test_runs_saved_before_partial_ones_were_are_complete():
+    run = a_run(80.5)
+    # as unpickled from a run saved before `complete` was added
+    del run.__dict__["complete"]
+    assert run.complete
