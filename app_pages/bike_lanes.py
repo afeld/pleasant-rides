@@ -14,7 +14,7 @@ st.caption(
 )
 
 try:
-    compared, as_of = compare_bike_lanes()
+    compared, on_map, as_of = compare_bike_lanes()
 except Exception as e:  # noqa: BLE001
     # nothing's cached when fetching fails, so reloading the page tries again
     st.error(f"{type(e).__name__}: {e}", title="Couldn't fetch the bike lanes")
@@ -117,6 +117,7 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
         help=f"Only show lanes that none of the other selected sources have within {bike_lanes.MATCH_DISTANCE_M} m",
     )
 selected = lane_selection.select(compared, sources, categories, missing_only)
+shown = lane_selection.select(on_map, sources, categories, missing_only)
 
 
 def also_in(frame: pd.DataFrame, others: list[str]):
@@ -131,7 +132,7 @@ def also_in(frame: pd.DataFrame, others: list[str]):
 
 
 def layer(source: str):
-    frame = selected[source]
+    frame = shown[source]
     others = [s for s in sources if s != source]
     data = pd.DataFrame(
         {

@@ -17,6 +17,7 @@ from streamlit.runtime.caching.cache_utils import CachedFunc
 from . import (
     bike_lanes,
     edges,
+    lane_selection,
     map_matching,
     metrics,
     overture,
@@ -250,11 +251,13 @@ def _compare_bike_lanes(code: str, release: str):
         bike_lanes.NYC: nyc_as_of,
     }
     compared = bike_lanes.compare(lanes)
-    for frame in compared.values():
-        frame["path"] = bike_lanes.map_paths(frame)
-    return compared, as_of
+    on_map = {
+        source: lane_selection.map_lanes(frame, [o for o in compared if o != source])
+        for source, frame in compared.items()
+    }
+    return compared, on_map, as_of
 
 
 def compare_bike_lanes():
-    """Source -> its NYC bike lanes, compared with the other sources' (see `bike_lanes.compare()`), with a `path` for mapping; and source -> when its data is from. Kept in memory as they are (like the Overture tiles), since they're only read. The sources' data is cached on disk: OpenStreetMap's and NYC Open Data's until "Clear cache", and Overture's per release."""
+    """Source -> its NYC bike lanes, compared with the other sources' (see `bike_lanes.compare()`); source -> those lanes for the map (see `lane_selection.map_lanes()`); and source -> when its data is from. Kept in memory as they are (like the Overture tiles), since they're only read. The sources' data is cached on disk: OpenStreetMap's and NYC Open Data's until "Clear cache", and Overture's per release."""
     return _compare_bike_lanes(_BIKE_LANES_CODE, _latest_release())

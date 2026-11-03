@@ -1,6 +1,7 @@
 import json
 
 import pydeck as pdk
+import pytest
 
 from pleasant_rides import bike_lanes as b
 from pleasant_rides import lane_selection as s
@@ -61,3 +62,31 @@ def test_compact_deck():
     deck = s.CompactDeck(layers=[layer])
     assert "\n" not in deck.to_json()
     assert json.loads(deck.to_json()) == json.loads(pdk.Deck(layers=[layer]).to_json())
+
+
+def connected():
+    """NYC Open Data's lanes: two connected ones that OpenStreetMap has, and one far away that it doesn't."""
+    return b.compare(
+        {
+            b.NYC: _lanes(
+                [(0, 0), (100, 0)], [(100, 0), (200, 0)], [(0, 1000), (100, 1000)]
+            ),
+            b.OSM: _lanes([(0, 5), (200, 5)]),
+        }
+    )[b.NYC]
+
+
+def test_map_lanes_merges_connected_lanes_that_are_alike():
+    lanes = s.map_lanes(connected(), [b.OSM])
+    assert len(lanes) == 2
+    merged = lanes.loc[lanes[b.OSM] == 1].iloc[0]
+    assert len(merged["path"]) == 2
+    (west, _), (east, _) = sorted(merged["path"])
+    # ~200 m apart, in degrees of longitude
+    assert east - west == pytest.approx(200 / 84_000, rel=0.05)
+
+
+def test_map_lanes_keeps_lanes_that_differ_apart():
+    frame = connected()
+    frame.loc[1, "category"] = b.PAINTED
+    assert len(s.map_lanes(frame, [b.OSM])) == 3

@@ -1,4 +1,4 @@
-"""The bike lanes picked on the Bike lanes page's map, and exporting them as GeoJSON.
+"""The Bike lanes page's map: the lanes to draw, which of them are picked, and exporting them as GeoJSON.
 
 This is separate from `bike_lanes`, since that module's source is part of the cache key for Overture's lanes.
 """
@@ -9,22 +9,43 @@ from collections.abc import Mapping, Sequence
 import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
+import shapely
 from pydeck.bindings.json_tools import default_serialize
 
-from .bike_lanes import METRIC_CRS
+from .bike_lanes import METRIC_CRS, map_paths
 
+# what a lane's tooltip on the map shows, so lanes alike in all of these can be drawn as one line
+_TOOLTIP_KEYS = ["category", "name", "updated"]
 # the share of a lane another source has for it to count as having it
 HAS_SHARE = 0.5
 PROPERTIES = ["id", "name", "category", "updated", "length_m"]
 
 
+def map_lanes(frame: gpd.GeoDataFrame, others: Sequence[str]):
+    """A source's lanes (from `bike_lanes.compare()`) for the map, with connected ones that have the same type, name, day they were last edited, and share (to the percent) in each of the `others` merged into one line, each with its `path` (see `bike_lanes.map_paths()`). Each line's tooltip is sent with it, so drawing a street as one line rather than one per block about halves what's sent to the browser."""
+    keys = [*_TOOLTIP_KEYS, *others]
+    lanes = gpd.GeoDataFrame(
+        frame.assign(
+            updated=frame["updated"].str[:10], **{o: frame[o].round(2) for o in others}
+        )
+    ).explode(index_parts=False)
+    merged = (
+        lanes.groupby(keys, dropna=False, sort=False)
+        .geometry.agg(lambda g: shapely.line_merge(shapely.multilinestrings(g.values)))
+        .reset_index()
+    )
+    merged = gpd.GeoDataFrame(merged, crs=frame.crs).explode(ignore_index=True)
+    merged["path"] = map_paths(merged)
+    return merged.drop(columns="geometry")
+
+
 def select(
-    compared: Mapping[str, gpd.GeoDataFrame],
+    compared: Mapping[str, pd.DataFrame],
     sources: Sequence[str],
     categories: Sequence[str],
     missing_only: bool,
 ):
-    """Source -> its lanes (from `bike_lanes.compare()`) in `categories`, for each of `sources`; if `missing_only`, only the ones none of the other `sources` have."""
+    """Source -> its lanes (from `bike_lanes.compare()` or `map_lanes()`) in `categories`, for each of `sources`; if `missing_only`, only the ones none of the other `sources` have."""
     selected = {}
     for source in sources:
         frame = compared[source]
