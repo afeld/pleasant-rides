@@ -1,9 +1,13 @@
-# The app's Google Cloud project (the APIs it uses and its Maps key) and its DNS record. See "Deploying" in the README.
+# The app's Google Cloud project (the APIs it uses, its Maps key, and its spending limits) and its DNS record. See "Deploying" in the README.
 
 terraform {
   required_providers {
     google = {
       source = "hashicorp/google"
+    }
+    # for the Routes API's quota (see budget.tf), which only it can set
+    google-beta = {
+      source = "hashicorp/google-beta"
     }
     cloudflare = {
       source = "cloudflare/cloudflare"
@@ -18,11 +22,19 @@ provider "google" {
   user_project_override = true
 }
 
+provider "google-beta" {
+  project               = "pleasant-rides"
+  billing_project       = "pleasant-rides"
+  user_project_override = true
+}
+
 locals {
   services = [
     # Terraform needs these to manage the project and its Maps key, so they're turned on with gcloud first (see the README)
     "cloudresourcemanager.googleapis.com",
     "apikeys.googleapis.com",
+    # for the budget (see budget.tf)
+    "billingbudgets.googleapis.com",
     # the Google provider (pleasant_rides/providers/google.py)
     "routes.googleapis.com",
     # Gemini Cloud Assist, for help managing the project in the console
