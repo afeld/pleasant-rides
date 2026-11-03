@@ -60,3 +60,11 @@ def test_preview_opens_on_load_only_when_asked(open: bool):
     data = step_data(POINTS, [step(100)], SEGMENTS)
     RoutePreview(data, "test-token", route_miles(POINTS), open=open).add_to(m)
     assert f"if ({str(open).lower()}) window.addEventListener" in m.get_root().render()
+
+
+def test_preview_has_a_play_button():
+    route = Route("Valhalla", "Primary", POINTS)
+    m = build_map([route], highlight=route)
+    data = step_data(POINTS, [step(100)], SEGMENTS)
+    RoutePreview(data, "test-token", route_miles(POINTS)).add_to(m)
+    assert 'aria-label="Play"' in m.get_root().render()

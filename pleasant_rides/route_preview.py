@@ -72,7 +72,7 @@ def step_data(
 
 
 class RoutePreview(MacroElement):
-    """MapillaryJS in a panel on the map, with buttons, arrow keys, and a slider to step along the route. Clicking the route on the map opens it at the nearest step."""
+    """MapillaryJS in a panel on the map, with buttons, arrow keys, and a slider to step along the route, and a button to play through it. Clicking the route on the map opens it at the nearest step."""
 
     _template = Template("""
         {% macro header(this, kwargs) %}
@@ -112,9 +112,10 @@ class RoutePreview(MacroElement):
                 '<div class="route-preview-viewer"></div>' +
                 '<div class="route-preview-info" aria-live="polite"></div>' +
                 '<div class="route-preview-controls">' +
-                '<button type="button" data-step="-1" aria-label="Step back">&#9664;</button>' +
+                '<button type="button" data-play aria-label="Play" title="Play">&#9654;&#xFE0E;</button>' +
+                '<button type="button" data-step="-1" aria-label="Step back">&#8249;</button>' +
                 '<input type="range" min="0" max="' + (steps.length - 1) + '" value="0" aria-label="Position along the route">' +
-                '<button type="button" data-step="1" aria-label="Step forward">&#9654;</button>' +
+                '<button type="button" data-step="1" aria-label="Step forward">&#8250;</button>' +
                 '<button type="button" data-close aria-label="Close the preview">&#10005;</button>' +
                 "</div>";
             L.DomEvent.disableClickPropagation(panel);
@@ -124,6 +125,8 @@ class RoutePreview(MacroElement):
             var slider = panel.querySelector("input");
             var back = panel.querySelector('[data-step="-1"]');
             var forward = panel.querySelector('[data-step="1"]');
+            var playButton = panel.querySelector("[data-play]");
+            var playing = false, playTimer = null;
 
             // an arrow pointing which way the route goes
             var marker = L.marker([0, 0], {
@@ -156,6 +159,31 @@ class RoutePreview(MacroElement):
                 if (step.pano && event.image && event.image.id === step.id) {
                     viewer.setCenter([((((step.bearing - step.compass) / 360 + 0.5) % 1) + 1) % 1, 0.5]);
                 }
+            }
+
+            // playing steps forward on its own, once each photo has loaded and been shown for a bit, so it doesn't outrun the photos (or send Mapillary a burst of requests)
+            function setPlaying(on) {
+                playing = on && index < steps.length - 1;
+                clearTimeout(playTimer);
+                playButton.innerHTML = playing ? "&#10074;&#10074;" : "&#9654;&#xFE0E;";
+                playButton.setAttribute("aria-label", playing ? "Pause" : "Play");
+                playButton.title = playing ? "Pause" : "Play";
+                // the current photo is already showing
+                if (playing) playNext();
+            }
+
+            function playNext() {
+                clearTimeout(playTimer);
+                playTimer = setTimeout(function () {
+                    if (!playing) return;
+                    show(index + 1);
+                    if (index === steps.length - 1) setPlaying(false);
+                }, {{ this.play_ms }});
+            }
+
+            function photoShown(event) {
+                faceAlongRoute(event);
+                if (playing && event.image && event.image.id === steps[index].id) playNext();
             }
 
             // keeps the marker in the middle of the part of the map the panel doesn't cover (beside it on wide screens, above it on narrow ones), away from the legend and controls at the edges
@@ -215,9 +243,10 @@ class RoutePreview(MacroElement):
                             // stepping follows our route rather than the photographer's, so the viewer's own navigation is off
                             component: { cover: false, sequence: false, direction: false, keyboard: false },
                         });
-                        viewer.on("image", faceAlongRoute);
+                        viewer.on("image", photoShown);
                     } else {
-                        viewer.moveTo(step.id).catch(function () {});
+                        // a photo that doesn't load is skipped when playing
+                        viewer.moveTo(step.id).catch(function () { if (playing) playNext(); });
                     }
                 });
             }
@@ -232,21 +261,25 @@ class RoutePreview(MacroElement):
             }
 
             function close() {
+                setPlaying(false);
                 panel.classList.remove("open");
                 marker.remove();
             }
 
+            // moving around yourself stops playing
             panel.addEventListener("click", function (e) {
                 var button = e.target.closest("button");
                 if (!button) return;
                 if (button.hasAttribute("data-close")) close();
-                else show(index + Number(button.dataset.step));
+                else if (button.hasAttribute("data-play")) setPlaying(!playing);
+                else { setPlaying(false); show(index + Number(button.dataset.step)); }
             });
-            slider.addEventListener("input", function () { show(Number(slider.value)); });
+            slider.addEventListener("input", function () { setPlaying(false); show(Number(slider.value)); });
             panel.addEventListener("keydown", function (e) {
                 if (e.target === slider) return;
-                if (e.key === "ArrowLeft") { show(index - 1); e.preventDefault(); }
-                else if (e.key === "ArrowRight") { show(index + 1); e.preventDefault(); }
+                if (e.key === "ArrowLeft") { setPlaying(false); show(index - 1); e.preventDefault(); }
+                else if (e.key === "ArrowRight") { setPlaying(false); show(index + 1); e.preventDefault(); }
+                else if (e.key === " " && e.target.tagName !== "BUTTON") { setPlaying(!playing); e.preventDefault(); }
                 else if (e.key === "Escape") close();
             });
 
@@ -269,7 +302,7 @@ class RoutePreview(MacroElement):
                     var d = point.distanceTo(map.latLngToContainerPoint([step.lat, step.lon]));
                     if (d < bestDistance) { best = i; bestDistance = d; }
                 });
-                if (best >= 0) open(best);
+                if (best >= 0) { setPlaying(false); open(best); }
             });
         })({{ this._parent.get_name() }});
         {% endmacro %}
@@ -296,3 +329,5 @@ class RoutePreview(MacroElement):
         self.tolerance = tolerance
         self.zoom = 16
         self.settle_ms = 300
+        # how long each photo is shown when playing, once it's loaded
+        self.play_ms = 1000
