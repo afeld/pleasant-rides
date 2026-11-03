@@ -4,7 +4,7 @@ import time
 import pandas as pd
 import streamlit as st
 
-from pleasant_rides import street_photos
+from pleasant_rides import login, street_photos
 from pleasant_rides.cached import (
     fetch_routes,
     geocode,
@@ -56,6 +56,9 @@ trip = st.selectbox(
     key="trip",
     bind="query-params",
 )
+if trip == CUSTOM_TRIP and not login.signed_in():
+    login.sign_in("plan your own trip")
+    st.stop()
 origin_point, destination_point = custom_trip() if trip == CUSTOM_TRIP else TRIPS[trip]
 
 status = st.empty()
@@ -175,6 +178,9 @@ def street_preview_section(
 
 async def street_preview(route: Route, segments: list[Segment]):
     """Mapillary's photos along the route, to step through on the map, once asked for, since finding them the first time takes a few seconds; or None if they weren't asked for or there aren't any."""
+    # only for signed-in people, since the token is sent to the browser, where anyone could take it and use up its quota
+    if not login.signed_in():
+        return None
     try:
         token = street_photos.token()
     except MissingAPIKey as e:

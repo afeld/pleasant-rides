@@ -4,7 +4,7 @@ Mapping apps are good at getting you from place to place, but they generally opt
 
 ![screenshot of analysis page](analysis.png)
 
-There isn't a public instance of the app/analysis at this point - see [Running](#running) to get it working on your computer.
+It's at [pleasant-rides.afeld.me](https://pleasant-rides.afeld.me), where anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [Running](#running).
 
 ## Working definition
 
@@ -91,7 +91,7 @@ To stop it, run `docker compose down`. To get fresh data, which the public serve
 
 ## Deploying
 
-The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. It routes with its own BRouter, a second Fly app (`pleasant-rides-brouter`, in [`brouter/`](brouter/)) that has no public IP: the app reaches it over Fly's private network through [Flycast](https://fly.io/docs/networking/flycast/), which also starts it on demand. Deployed copies require signing in with Google, and only the sign-in client's test users get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
+The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. It routes with its own BRouter, a second Fly app (`pleasant-rides-brouter`, in [`brouter/`](brouter/)) that has no public IP: the app reaches it over Fly's private network through [Flycast](https://fly.io/docs/networking/flycast/), which also starts it on demand. On deployed copies, anyone can see the sample trips and the bike lanes, since those only ever fetch the same things, which are then cached. Planning your own trip, running the benchmark, and previewing street-level photos require signing in with Google, and only the sign-in client's test users get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since those could make any number of requests, spending the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
 
 1. Apply the Terraform config, signed in to gcloud as an owner of the project (`--no-activate` leaves your other gcloud configurations alone):
 

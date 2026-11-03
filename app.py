@@ -1,9 +1,6 @@
 import streamlit as st
 
-from pleasant_rides.login import require_login
-
 st.set_page_config(page_title="Pleasant Rides", page_icon="🚲", layout="wide")
-require_login()
 st.navigation(
     [
         st.Page("app_pages/planner.py", title="Planner", default=True),
