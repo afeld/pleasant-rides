@@ -4,6 +4,7 @@ import time
 import streamlit as st
 
 from pleasant_rides.cached import fetch_routes, geocode, get_edges, get_surroundings
+from pleasant_rides.cyclemate_login import sign_in_prompt
 from pleasant_rides.map import build_map
 from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
@@ -13,6 +14,7 @@ from pleasant_rides.surroundings import Surroundings
 from pleasant_rides.trips import TRIPS
 
 st.title("Pleasant Ride Planner")
+sign_in_prompt()
 
 CUSTOM_TRIP = "Custom…"
 
