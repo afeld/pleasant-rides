@@ -64,6 +64,7 @@ MAP_HEIGHT = 700
 # between, which would make the browser scroll back to the top.
 # (a bit taller than the map itself, which otherwise doesn't quite fit and scrolls)
 map_placeholder = st.container(height=MAP_HEIGHT + 16, border=False).empty()
+preview_placeholder = st.empty()
 
 PARTIAL_MAP_AFTER_S = 1
 
@@ -162,12 +163,25 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
 
 
 async def street_preview(route: Route, segments: list[Segment]):
-    """Mapillary's photos along the route, to step through on the map, or None if there aren't any."""
+    """Mapillary's photos along the route, to step through on the map, once asked for, since finding them the first time takes a few seconds; or None if they weren't asked for or there aren't any."""
     try:
         token = street_photos.token()
     except MissingAPIKey as e:
         warnings.caption(f"Street-level preview: skipped ({e})")
         return None
+    # remembered for the route, so that reruns keep the preview (from the cache) without opening it again
+    key = f"preview:{table_key}:{route.id}"
+    just_asked = False
+    if not st.session_state.get(key):
+        just_asked = preview_placeholder.button(
+            "Preview street-level photos",
+            icon=":material/photo_camera:",
+            key=f"{key}:button",
+        )
+        if not just_asked:
+            return None
+        st.session_state[key] = True
+    preview_placeholder.empty()
     status.caption("Finding street-level photos…")
     try:
         steps = await route_steps(route.points)
@@ -182,7 +196,10 @@ async def street_preview(route: Route, segments: list[Segment]):
         warnings.caption("Mapillary doesn't have street-level photos along this route.")
         return None
     return RoutePreview(
-        step_data(route.points, steps, segments), token, route_miles(route.points)
+        step_data(route.points, steps, segments),
+        token,
+        route_miles(route.points),
+        open=just_asked,
     )
 
 

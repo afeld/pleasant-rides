@@ -262,6 +262,12 @@ class RoutePreview(MacroElement):
                 },
             });
             new Button({ position: "topleft" }).addTo(map);
+            // once the page has loaded and the map has finished its animated zoom to fit the routes, since Leaflet ignores zooming (as open() does) during one
+            function openWhenSettled() {
+                if (map._animatingZoom) map.once("zoomend", function () { setTimeout(openWhenSettled); });
+                else open(0);
+            }
+            if ({{ this.open|tojson }}) window.addEventListener("load", openWhenSettled);
 
             map.on("resize", function () {
                 if (panel.classList.contains("open")) keepVisible(marker.getLatLng());
@@ -282,10 +288,17 @@ class RoutePreview(MacroElement):
     """)
 
     def __init__(
-        self, steps: list[dict], token: str, route_mi: float, tolerance: int = 30
+        self,
+        steps: list[dict],
+        token: str,
+        route_mi: float,
+        open: bool = False,
+        tolerance: int = 30,
     ):
+        """`open` opens the preview at the start of the route as soon as the map loads."""
         super().__init__()
         self._name = "RoutePreview"
+        self.open = open
         self.steps = steps
         self.token = token
         self.route_mi = route_mi

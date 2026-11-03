@@ -51,3 +51,12 @@ def test_step_data_marks_a_gap_at_the_start():
 
 def test_route_miles():
     assert route_miles(POINTS) == pytest.approx(1112 / 1609.344, abs=0.01)
+
+
+@pytest.mark.parametrize("open", [True, False])
+def test_preview_opens_on_load_only_when_asked(open: bool):
+    route = Route("Valhalla", "Primary", POINTS)
+    m = build_map([route], highlight=route)
+    data = step_data(POINTS, [step(100)], SEGMENTS)
+    RoutePreview(data, "test-token", route_miles(POINTS), open=open).add_to(m)
+    assert f"if ({str(open).lower()}) window.addEventListener" in m.get_root().render()
