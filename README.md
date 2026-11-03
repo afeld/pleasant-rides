@@ -144,7 +144,7 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly certs add pleasant-rides.afeld.me
    ```
 
-1. Create and deploy BRouter, with only a private IP. It doesn't deploy on pushes. To get fresh routing data, which is built into the image, redeploy it with `--no-cache`.
+1. Create and deploy BRouter, with only a private IP:
 
    ```sh
    fly apps create pleasant-rides-brouter
@@ -174,7 +174,7 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly deploy --ha=false
    ```
 
-After that, pushes to `main` deploy automatically, through Fly's GitHub integration (set up in the [app's dashboard](https://fly.io/apps/pleasant-rides)). Later deploys update the existing machine, so they don't need `--ha=false`.
+After that, pushes to `main` deploy both apps automatically, through Fly's GitHub integration (set up in each app's dashboard: [the app](https://fly.io/apps/pleasant-rides) and [BRouter](https://fly.io/apps/pleasant-rides-brouter)). Later deploys update the existing machines, so they don't need `--ha=false`. BRouter's routing data is built into its image, so to get fresh data (the public server updates it weekly), redeploy it without the build cache: `fly deploy brouter --no-cache`.
 
 To change who has access, edit the [test users](https://console.cloud.google.com/auth/audience?project=pleasant-rides). It takes effect on their next sign-in, without a deploy.
 
