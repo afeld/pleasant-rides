@@ -1,4 +1,4 @@
-# A BRouter server (https://github.com/abrensch/brouter) with its routing data built in, for running on Fly.io (see fly.toml here). Rebuild without the cache to get fresh data, which the public server updates weekly.
+# A BRouter server (https://github.com/abrensch/brouter) with its routing data built in, for running on Fly.io (see fly.toml here) and locally (see compose.yaml). Rebuild without the cache to get fresh data, which the public server updates weekly.
 
 # built from a release, since the published release images (ghcr.io/abrensch/brouter) lag behind and are amd64-only
 FROM gradle:jdk17-jammy AS build

@@ -76,7 +76,7 @@ BRouter's public server is free but busy: long routes sometimes get killed, and 
    docker compose up
    ```
 
-   The first time, this builds BRouter from source and downloads its routing data for the area around New York City (~120 MB), which takes a minute or two. After that it starts in a few seconds. For other areas, set `BROUTER_TILES` to [tiles](https://brouter.de/brouter/segments4/) separated by spaces, e.g. `BROUTER_TILES="W75_N40 W80_N40"`.
+   The first time, this builds BRouter from source with its routing data for the area around New York City (~120 MB), which takes a few minutes. After that it starts in a few seconds. It's the same image the deployed app uses (see [`brouter/Dockerfile`](brouter/Dockerfile)). For other areas, set `BROUTER_TILES` to [tiles](https://brouter.de/brouter/segments4/) separated by spaces and rebuild, e.g. `BROUTER_TILES="W75_N40 W80_N40" docker compose up --build`.
 
 1. Add this to your `.env`:
 
@@ -86,7 +86,7 @@ BRouter's public server is free but busy: long routes sometimes get killed, and 
 
    Routes from it are cached separately from the public server's.
 
-To stop it, run `docker compose down`. To wipe it, including the downloaded data (e.g. to get fresh data, which the public server updates weekly), run `docker compose down -v --rmi all`.
+To stop it, run `docker compose down`. To get fresh data, which the public server updates weekly, run `docker compose build --no-cache`.
 
 ## Deploying
 
