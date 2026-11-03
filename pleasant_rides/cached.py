@@ -14,7 +14,14 @@ import streamlit as st
 from streamlit.runtime.caching.cache_errors import CacheError
 from streamlit.runtime.caching.cache_utils import CachedFunc
 
-from . import bike_lanes, map_matching, overture, providers, surroundings
+from . import (
+    bike_lanes,
+    map_matching,
+    overture,
+    providers,
+    street_photos,
+    surroundings,
+)
 from .geocode import geocode_place
 from .models import Point
 from .politeness import ProviderError, is_permanent
@@ -84,6 +91,23 @@ async def get_edges(points: Sequence[Point]):
     return await _unless_failed(
         ("edges", tuple(points)), lambda: call_async(_get_edges, points)
     )
+
+
+# Mapillary's coverage grows over time, but slowly; "Clear cache" picks up new photos
+_street_photos_tile = st.cache_data(show_spinner=False, persist="disk")(
+    street_photos.fetch_tile
+)
+
+
+async def _photos_tile(x: int, y: int):
+    return await _unless_failed(
+        ("street photos", x, y), lambda: call_async(_street_photos_tile, x, y)
+    )
+
+
+async def route_steps(points: Sequence[Point]):
+    """Cached per coverage tile rather than per route, so routes overlapping ones seen before only fetch the tiles that are new."""
+    return await street_photos.route_steps(points, _photos_tile)
 
 
 # Streamlit only notices changes to a cached function's own code, not to what it calls, so the code of the module that reads from Overture is part of the key, so that e.g. reading another column refetches the tiles. Changes to `surroundings` (which features count, and how routes are measured against them) don't need a refetch.
