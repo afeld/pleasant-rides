@@ -8,6 +8,8 @@ from collections.abc import Mapping, Sequence
 
 import geopandas as gpd
 import pandas as pd
+import pydeck as pdk
+from pydeck.bindings.json_tools import default_serialize
 
 from .bike_lanes import METRIC_CRS
 
@@ -32,6 +34,15 @@ def select(
             frame = frame.loc[frame[others].max(axis=1) < HAS_SHARE]
         selected[source] = frame
     return selected
+
+
+class CompactDeck(pdk.Deck):
+    """A pydeck map whose JSON has no indentation, which pydeck adds, since with the whole city's lanes that doubled it, from 9 MB to 19 MB, helping run the deployed app out of memory."""
+
+    def to_json(self):
+        return json.dumps(
+            self, sort_keys=True, default=default_serialize, separators=(",", ":")
+        )
 
 
 def to_geojson(selected: Mapping[str, gpd.GeoDataFrame]):

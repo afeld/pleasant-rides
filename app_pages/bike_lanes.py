@@ -166,7 +166,7 @@ st.markdown(
 )
 west, south, east, north = bike_lanes.NYC_BBOX
 st.pydeck_chart(
-    pdk.Deck(
+    lane_selection.CompactDeck(
         # NYC Open Data, then OpenStreetMap, then Overture on top, so the sources with fewer lanes aren't hidden under the others
         layers=[layer(source) for source in reversed(compared) if source in sources],
         initial_view_state=pdk.ViewState(

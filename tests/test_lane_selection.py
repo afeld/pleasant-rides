@@ -1,5 +1,7 @@
 import json
 
+import pydeck as pdk
+
 from pleasant_rides import bike_lanes as b
 from pleasant_rides import lane_selection as s
 from tests.test_bike_lanes import _lanes
@@ -52,3 +54,10 @@ def test_to_geojson():
 def test_to_geojson_with_nothing_selected():
     collection = json.loads(s.to_geojson(s.select(compared(), [], [], False)))
     assert collection == {"type": "FeatureCollection", "features": []}
+
+
+def test_compact_deck():
+    layer = pdk.Layer("PathLayer", [{"path": [[-73.9, 40.7], [-73.8, 40.8]]}])
+    deck = s.CompactDeck(layers=[layer])
+    assert "\n" not in deck.to_json()
+    assert json.loads(deck.to_json()) == json.loads(pdk.Deck(layers=[layer]).to_json())
