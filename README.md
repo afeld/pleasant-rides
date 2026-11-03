@@ -130,16 +130,16 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
    ```
 
-1. Install [flyctl](https://fly.io/docs/flyctl/install/), sign in, and create the app from [`fly.toml`](fly.toml):
+1. Install [flyctl](https://fly.io/docs/flyctl/install/), sign in (`fly auth login`), and create the app. Everything else about it is in [`fly.toml`](fly.toml).
 
    ```sh
-   fly launch --copy-config --no-deploy
+   fly apps create pleasant-rides
    ```
 
-1. Set the secrets: the API keys from `.env` (except `BROUTER_URL`, which points at your local BRouter), and `secrets.toml`, which Fly needs base64-encoded:
+1. Set the secrets: the API keys from `.env` (only the `*_KEY` variables, since e.g. `BROUTER_URL` points at your local BRouter), and `secrets.toml`, which Fly needs base64-encoded:
 
    ```sh
-   grep -v BROUTER_URL .env | fly secrets import
+   grep '_KEY=' .env | fly secrets import --stage
    ```
 
    ```sh
