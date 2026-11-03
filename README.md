@@ -90,7 +90,7 @@ To stop it, run `docker compose down`. To wipe it, including the downloaded data
 
 ## Deploying
 
-The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. Deployed copies require signing in with Google, and only emails in an allowlist get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
+The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connected and starts it on the next request. A volume keeps Streamlit's disk cache across restarts. Deployed copies require signing in with Google, and only the sign-in client's test users get in (see [`pleasant_rides/login.py`](pleasant_rides/login.py)), since they spend the API keys and the public servers' capacity. The Google Cloud project (`pleasant-rides`) and the `pleasant-rides.afeld.me` DNS record (in Cloudflare) are managed with [Terraform](https://developer.hashicorp.com/terraform), except for the sign-in client, which Terraform can't create.
 
 1. Apply the Terraform config, signed in to gcloud as an owner of the project (`--no-activate` leaves your other gcloud configurations alone):
 
@@ -121,13 +121,11 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    The state is kept locally (and ignored by Git), since it includes the Maps key itself.
 
 1. In the [Google Auth Platform](https://console.cloud.google.com/auth/overview?project=pleasant-rides):
-   1. Under Audience, choose External, leave it in Testing, and add the people who should have access as test users. Testing mode only lets test users sign in, which is a second allowlist.
+   1. Under Audience, choose External, leave it in Testing, and add the people who should have access as test users. Testing mode only lets test users sign in, so it's the allowlist: don't publish the app, or any Google account could get in.
    1. Under Clients, create a Web application client with the authorized redirect URI `https://pleasant-rides.afeld.me/oauth2callback`.
-1. Create `.streamlit/secrets.toml` (ignored by Git) with the client's ID and secret and the allowlist:
+1. Create `.streamlit/secrets.toml` (ignored by Git) with the client's ID and secret:
 
    ```toml
-   allowed_emails = ["someone@example.com"]
-
    [auth]
    redirect_uri = "https://pleasant-rides.afeld.me/oauth2callback"
    cookie_secret = "<a long random string, e.g. from `openssl rand -hex 32`>"
@@ -162,7 +160,7 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly deploy --ha=false
    ```
 
-To change who has access, edit `allowed_emails` (and the test users), then set `STREAMLIT_SECRETS` again.
+To change who has access, edit the [test users](https://console.cloud.google.com/auth/audience?project=pleasant-rides). It takes effect on their next sign-in, without a deploy.
 
 ## Benchmarking
 
