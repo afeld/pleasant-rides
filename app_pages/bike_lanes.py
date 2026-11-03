@@ -3,7 +3,7 @@ import pandas as pd
 import pydeck as pdk
 import streamlit as st
 
-from pleasant_rides import bike_lanes
+from pleasant_rides import bike_lanes, lane_selection
 from pleasant_rides.cached import compare_bike_lanes
 from pleasant_rides.units import METERS_PER_MILE
 
@@ -116,6 +116,7 @@ with st.container(horizontal=True, vertical_alignment="bottom"):
         "Only what the others don't have",
         help=f"Only show lanes that none of the other selected sources have within {bike_lanes.MATCH_DISTANCE_M} m",
     )
+selected = lane_selection.select(compared, sources, categories, missing_only)
 
 
 def also_in(frame: pd.DataFrame, others: list[str]):
@@ -130,11 +131,8 @@ def also_in(frame: pd.DataFrame, others: list[str]):
 
 
 def layer(source: str):
-    frame = compared[source]
-    frame = frame.loc[frame["category"].isin(categories)]
+    frame = selected[source]
     others = [s for s in sources if s != source]
-    if missing_only and others:
-        frame = frame.loc[frame[others].max(axis=1) < 0.5]
     data = pd.DataFrame(
         {
             "path": frame["path"],
@@ -188,4 +186,14 @@ st.pydeck_chart(
     ),
     height=700,
     alt="Map of New York City's bike lanes in each source",
+)
+st.download_button(
+    "Download as GeoJSON",
+    # only built when clicked, since it can be the whole city's lanes
+    lambda: lane_selection.to_geojson(selected),
+    file_name="nyc-bike-lanes.geojson",
+    mime="application/geo+json",
+    on_click="ignore",
+    icon=":material/download:",
+    help="The lanes shown on the map, with the sources, types, and toggle above",
 )
