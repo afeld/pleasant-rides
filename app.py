@@ -8,7 +8,7 @@ st.navigation(
     [
         st.Page("app_pages/planner.py", title="Planner", default=True),
         st.Page("app_pages/benchmark.py", title="Benchmark"),
-        st.Page("app_pages/bike_lanes.py", title="Bike lanes"),
+        st.Page("app_pages/bike_lanes.py", title="Bike lanes", url_path="bike-lanes"),
     ],
     position="top",
 ).run()
