@@ -1,7 +1,10 @@
+import pyarrow as pa
+import pyarrow.dataset as ds
 import pytest
 import shapely
 
 from pleasant_rides import bike_lanes as b
+from pleasant_rides import overture
 
 
 @pytest.mark.parametrize(
@@ -130,3 +133,36 @@ def test_compare():
     assert b.lengths_by_category(compared).loc[b.PROTECTED, "b"] == pytest.approx(
         0.15, rel=0.01
     )
+
+
+def test_fetch_overture(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(overture, "_stac_indexes", {})
+    monkeypatch.setattr(overture, "_stac_failed_at", None)
+    lane = shapely.LineString([(-73.99, 40.7), (-73.98, 40.71)])
+    segments = pa.table(
+        {
+            "id": ["lane", "road"],
+            "names": [{"primary": "Hudson River Greenway"}, None],
+            "subtype": ["road", "road"],
+            "class": ["cycleway", "residential"],
+            "subclass": [None, None],
+            "access_restrictions": pa.nulls(
+                2, pa.list_(pa.struct([("access_type", pa.string())]))
+            ),
+            "geometry": shapely.to_wkb([lane, lane]),
+            "bbox": pa.StructArray.from_arrays(
+                [
+                    pa.array(c)
+                    for c in ([-73.99] * 2, [-73.98] * 2, [40.7] * 2, [40.71] * 2)
+                ],
+                names=["xmin", "xmax", "ymin", "ymax"],
+            ),
+        }
+    )
+    monkeypatch.setattr(overture, "_files", lambda *args: ["segments"])
+    monkeypatch.setattr(overture, "_dataset", lambda source: ds.dataset(segments))
+    lanes = b.fetch_overture(
+        "2026-01-01.0", lane.buffer(0.01), lambda release: pa.table({})
+    )
+    assert lanes["id"].tolist() == ["lane"]
+    assert lanes["category"].tolist() == [b.PROTECTED]

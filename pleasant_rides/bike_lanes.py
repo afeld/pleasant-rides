@@ -3,11 +3,12 @@
 Each source is fetched in one go for the whole city, so they're cheap to cache, and comparing them doesn't hit the servers again.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pyarrow.compute as pc
 import shapely
 
@@ -166,15 +167,22 @@ def overture_category(
     return None
 
 
-def fetch_overture(release: str, boundary: shapely.Geometry):
-    """The city's bike lanes in an Overture release, clipped to `boundary`."""
-    files = overture._files(release, "segment", NYC_BBOX)
-    table = overture._dataset(files).to_table(
-        columns=["id", "names", "class", "subclass", "access_restrictions", "geometry"],
-        filter=overture._overlaps(NYC_BBOX) & (pc.field("subtype") == "road"),
+def fetch_overture(
+    release: str,
+    boundary: shapely.Geometry,
+    fetch_index: Callable[[str], pa.Table] = overture.fetch_stac_index,
+):
+    """The city's bike lanes in an Overture release, clipped to `boundary`. `fetch_index()` gets Overture's index of its files (see `overture.stac_index()`)."""
+    table = overture._read(
+        release,
+        overture.stac_index(release, fetch_index),
+        "segment",
+        NYC_BBOX,
+        ["id", "names", "class", "subclass", "access_restrictions", "geometry"],
+        pc.field("subtype") == "road",
     )
     rows, geometries = [], []
-    for segment in table.to_pylist():
+    for segment in table.to_pylist() if table is not None else []:
         category = overture_category(
             segment["class"], segment["subclass"], segment["access_restrictions"]
         )

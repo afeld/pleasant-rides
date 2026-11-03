@@ -174,7 +174,7 @@ _BIKE_LANES_CODE = hashlib.sha256(inspect.getsource(bike_lanes).encode()).hexdig
 
 @st.cache_data(show_spinner="Reading Overture's bike lanes…", persist="disk")
 def _overture_bike_lanes(code: str, release: str):
-    return bike_lanes.fetch_overture(release, _nyc_boundary())
+    return bike_lanes.fetch_overture(release, _nyc_boundary(), _fetch_stac_index)
 
 
 @st.cache_resource(show_spinner="Comparing bike lanes…", max_entries=2)
