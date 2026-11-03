@@ -13,9 +13,10 @@ PLEASANT_MODEL = {
         {"else_if": "road_class == PRIMARY", "multiply_by": "0.3"},
         {"else_if": "road_class == SECONDARY", "multiply_by": "0.6"},
         {"if": "max_speed > 50", "multiply_by": "0.5"},
+        # prefer cycleways and bike routes 1.5x, by making everything else less preferred, since a model's priority can't go above 1
         {
-            "if": "road_class == CYCLEWAY || bike_network != MISSING",
-            "multiply_by": "1.5",
+            "if": "road_class != CYCLEWAY && bike_network == MISSING",
+            "multiply_by": "0.67",
         },
         {
             "if": "surface == GRAVEL || surface == DIRT || surface == SAND",
