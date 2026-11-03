@@ -1,9 +1,12 @@
 from collections.abc import Sequence
+from itertools import accumulate, pairwise
 
 import folium
+from branca.colormap import LinearColormap
 from branca.element import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
+from pyproj import Geod
 
 from .models import Point, Route
 
@@ -151,10 +154,29 @@ class RouteTooltip(MacroElement):
 COLORS = ["#E63946", "#1D3557", "#2A9D8F", "#F4A261", "#457B9D", "#8338EC"]
 
 
-def build_map(routes: list[Route], highlight: Route | None = None):
+def _segment_colors():
+    """Segment score -> color, which is also the map's legend for them, so there's a new one per map."""
+    # red to blue (ColorBrewer's RdYlBu), rather than red to green, since it's color-blind safe
+    return LinearColormap(
+        ["#d7191c", "#fdae61", "#ffffbf", "#abd9e9", "#2c7bb6"],
+        vmin=0,
+        vmax=100,
+        caption="Segment score: traffic, speed, lanes, grade, surface, and rideability",
+    )
+
+
+# a route segment's length (in any unit) and its 0-100 score, or None if it isn't scored
+Segment = tuple[float, float | None]
+
+
+def build_map(
+    routes: list[Route],
+    highlight: Route | None = None,
+    segments: Sequence[Segment] | None = None,
+):
     """Maps a list of `Route`s, with one toggleable layer per provider, in the order they first appear.
 
-    `highlight` is an optional `Route` to draw on top of the others, which are faded, and zoom to.
+    `highlight` is an optional `Route` to draw on top of the others, which are faded, and zoom to. If `segments` (its road segments, in order) are given, it's colored by their scores.
     """
     all_points = [pt for route in routes for pt in route.points]
     if not all_points:
@@ -174,7 +196,7 @@ def build_map(routes: list[Route], highlight: Route | None = None):
 
     _add_endpoints(m, routes[0])
     if highlight and highlight_color:
-        _add_highlight(m, highlight, highlight_color)
+        _add_highlight(m, highlight, highlight_color, segments)
         _fit(m, highlight.points)
     else:
         _fit(m, all_points)
@@ -217,12 +239,59 @@ def _add_endpoints(m: folium.Map, route: Route):
     ).add_to(m)
 
 
-def _add_highlight(m: folium.Map, route: Route, color: str):
+def _add_highlight(
+    m: folium.Map, route: Route, color: str, segments: Sequence[Segment] | None
+):
     # in its own group, outside the layer control, so it's drawn above every provider's layer
     overlay = folium.FeatureGroup(control=False)
     folium.PolyLine(route.points, color="white", weight=11, opacity=1).add_to(overlay)
-    folium.PolyLine(route.points, color=color, weight=7, opacity=1).add_to(overlay)
+    if segments:
+        colors = _segment_colors()
+        pieces = split_by_lengths(route.points, [length for length, _ in segments])
+        for piece, (_, score) in zip(pieces, segments):
+            folium.PolyLine(
+                piece,
+                color=color if score is None else colors(score),
+                weight=7,
+                opacity=1,
+            ).add_to(overlay)
+        colors.add_to(m)
+    else:
+        folium.PolyLine(route.points, color=color, weight=7, opacity=1).add_to(overlay)
     overlay.add_to(m)
+
+
+_GEOD = Geod(ellps="WGS84")
+
+
+def split_by_lengths(points: Sequence[Point], lengths: Sequence[float]):
+    """`points` cut into consecutive pieces in proportion to `lengths`, each starting where the last one ended. Map-matched road segments come with their lengths but not their shapes, and add up to about the route's length, so this lines them up with the route."""
+    gaps = [_GEOD.inv(a.lon, a.lat, b.lon, b.lat)[2] for a, b in pairwise(points)]
+    total = sum(lengths)
+    scale = sum(gaps) / total if total else 0
+    # how far along the route each piece ends, other than the last
+    cuts = list(accumulate(length * scale for length in lengths))[:-1]
+    pieces: list[list[Point]] = []
+    piece = [points[0]]
+    travelled = 0.0
+    i = 0
+    for cut in cuts:
+        # move to the gap between points that the cut falls in
+        while i < len(gaps) - 1 and travelled + gaps[i] < cut:
+            travelled += gaps[i]
+            i += 1
+            piece.append(points[i])
+        a, b = points[i], points[i + 1]
+        frac = min((cut - travelled) / gaps[i], 1) if gaps[i] else 0
+        cut_point = Point(
+            a.lat + (b.lat - a.lat) * frac, a.lon + (b.lon - a.lon) * frac
+        )
+        piece.append(cut_point)
+        pieces.append(piece)
+        piece = [cut_point]
+    piece.extend(points[i + 1 :])
+    pieces.append(piece)
+    return pieces
 
 
 def _fit(m: folium.Map, points: Sequence[Point]):

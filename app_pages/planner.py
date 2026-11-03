@@ -5,11 +5,11 @@ import pandas as pd
 import streamlit as st
 
 from pleasant_rides.cached import fetch_routes, geocode, get_edges, get_surroundings
-from pleasant_rides.map import build_map
+from pleasant_rides.map import Segment, build_map
 from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
-from pleasant_rides.scoring import METRICS, Scorecard, score
+from pleasant_rides.scoring import METRICS, Scorecard, edge_scores, score
 from pleasant_rides.surroundings import Surroundings
 from pleasant_rides.trips import TRIPS
 
@@ -72,13 +72,17 @@ def all_routes(provider_routes: dict[str, list[Route]]):
     return [route for name in PROVIDERS for route in provider_routes.get(name, [])]
 
 
-def draw_map(provider_routes: dict[str, list[Route]]):
+def draw_map(
+    provider_routes: dict[str, list[Route]],
+    segments: list[Segment] | None = None,
+):
+    """`segments` are the highlighted route's, to color it by."""
     routes = all_routes(provider_routes)
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
         with map_placeholder:
             st.iframe(
-                build_map(routes, highlight).get_root().render(),
+                build_map(routes, highlight, segments).get_root().render(),
                 height=MAP_HEIGHT,
                 alt="Map of the routes",
             )
@@ -129,6 +133,13 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     scored.sort(key=lambda pair: pair[1].total, reverse=True)
     st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
     show_score_table(scored)
+    highlight = next((r for r, _ in scored if r.id == highlight_id), None)
+    if highlight:
+        # already fetched (and cached) for scoring
+        edges = await get_edges(highlight.points)
+        draw_map(
+            provider_routes, list(zip((e["length"] for e in edges), edge_scores(edges)))
+        )
 
 
 async def score_routes(routes: list[Route]):
