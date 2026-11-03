@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pleasant_rides.benchmark import last_run
 from pleasant_rides.benchmark.last_run import LastRun
@@ -21,7 +21,7 @@ def a_run(score: float):
             },
             {},
         ),
-        datetime(2026, 10, 17, 7, 30),
+        datetime(2026, 10, 17, 7, 30, tzinfo=timezone.utc),
         65.4,
     )
 

@@ -92,7 +92,9 @@ def run(names: list[str]):
         run_variants(names, fetch_routes_timed, get_edges, get_surroundings, on_step)
     )
     progress.empty()
-    finished = LastRun(names, results, datetime.now(), time.perf_counter() - started)
+    finished = LastRun(
+        names, results, datetime.now().astimezone(), time.perf_counter() - started
+    )
     last_run.save(finished)
     return finished
 
