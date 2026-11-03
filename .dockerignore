@@ -1,0 +1,15 @@
+.env
+.git
+.venv
+.build
+**/__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.streamlit/secrets.toml
+.agents
+.claude
+.vscode
+tests
+analysis.png
+terraform

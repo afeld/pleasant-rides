@@ -9,3 +9,11 @@ __pycache__/
 
 # worktrees made by Claude Code
 .claude/worktrees/
+
+# sign-in settings and allowlist (see "Deploying" in the README)
+.streamlit/secrets.toml
+
+# Terraform: downloaded providers, and state, which holds the Maps key itself
+terraform/.terraform/
+*.tfstate
+*.tfstate.*
