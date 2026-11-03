@@ -3,8 +3,8 @@
 import statistics
 from collections.abc import Mapping
 
-from ..edges import KM_PER_MILE
 from ..trips import TRIPS, short
+from ..units import KM_PER_MILE
 from .runner import TripResult, TripScore
 from .variants import VARIANTS
 

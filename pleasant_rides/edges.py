@@ -1,6 +1,7 @@
 """What the road segments (edges) a route follows are like, and what happens between them, for the metrics."""
 
 from .map_matching import Edge
+from .units import KM_PER_MILE
 
 # https://valhalla.github.io/valhalla/api/map-matching/api-reference/#edge-items
 BUSY_ROAD_CLASSES = {"motorway", "trunk", "primary", "secondary"}
@@ -90,10 +91,6 @@ def posted(edges: list[Edge]):
 
 def total_km(edges: list[Edge]):
     return sum(e["length"] for e in edges)
-
-
-# exact, by the international yard and pound agreement of 1959
-KM_PER_MILE = 1.609344
 
 
 def total_miles(edges: list[Edge]):
