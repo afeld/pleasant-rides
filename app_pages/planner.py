@@ -64,7 +64,8 @@ MAP_HEIGHT = 700
 # between, which would make the browser scroll back to the top.
 # (a bit taller than the map itself, which otherwise doesn't quite fit and scrolls)
 map_placeholder = st.container(height=MAP_HEIGHT + 16, border=False).empty()
-preview_placeholder = st.empty()
+# for the street-level preview's button and messages (see `street_preview_section()`)
+preview_area = st.container()
 
 PARTIAL_MAP_AFTER_S = 1
 
@@ -126,11 +127,12 @@ async def show_routes():
     draw_map(provider_routes)
     if not any(provider_routes.values()):
         st.error("No provider returned a route.")
-        return
+        return None
 
     status.caption("Scoring routes…")
-    await show_scores(provider_routes)
+    highlighted = await show_scores(provider_routes)
     status.empty()
+    return highlighted
 
 
 def column(metric: Metric):
@@ -144,6 +146,7 @@ def column(metric: Metric):
 
 
 async def show_scores(provider_routes: dict[str, list[Route]]):
+    """The highlighted route and its segments, if there is one."""
     scored = await score_routes(all_routes(provider_routes))
     scored.sort(key=lambda pair: pair[1].total, reverse=True)
     st.session_state[f"{table_key}:ids"] = [route.id for route, _ in scored]
@@ -156,10 +159,17 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
             Segment(e["length"], s, describe(e))
             for e, s in zip(edges, edge_scores(edges))
         ]
-        draw_map(provider_routes, segments)
-        preview = await street_preview(highlight, segments)
-        if preview:
-            draw_map(provider_routes, segments, preview)
+        return provider_routes, highlight, segments
+    return None
+
+
+# A fragment, so that the preview button only reruns this, rather than scoring all the routes again, which takes ~4 s. Its button and messages are in its own body (in `preview_area`); the map is the only thing it draws outside of it, which it does every time, since Streamlit only lets a fragment rerun write to outside containers it wrote to in the full run.
+@st.fragment
+def street_preview_section(
+    provider_routes: dict[str, list[Route]], route: Route, segments: list[Segment]
+):
+    preview = asyncio.run(street_preview(route, segments))
+    draw_map(provider_routes, segments, preview)
 
 
 async def street_preview(route: Route, segments: list[Segment]):
@@ -167,11 +177,11 @@ async def street_preview(route: Route, segments: list[Segment]):
     try:
         token = street_photos.token()
     except MissingAPIKey as e:
-        warnings.caption(f"Street-level preview: skipped ({e})")
+        st.caption(f"Street-level preview: skipped ({e})")
         return None
     # remembered for the route, so that reruns keep the preview (from the cache), so clicking the route still opens it, without opening it again
     key = f"preview:{table_key}:{route.id}"
-    just_asked = preview_placeholder.button(
+    just_asked = st.button(
         "Preview street-level photos",
         icon=":material/photo_camera:",
         key=f"{key}:button",
@@ -180,18 +190,18 @@ async def street_preview(route: Route, segments: list[Segment]):
         st.session_state[key] = True
     elif not st.session_state.get(key):
         return None
-    status.caption("Finding street-level photos…")
     try:
-        steps = await route_steps(route.points)
+        with st.spinner("Finding street-level photos…"):
+            steps = await route_steps(route.points)
     except Exception as e:
-        warnings.warning(
+        st.warning(
             redact(
                 f"Couldn't get street-level photos from Mapillary ({type(e).__name__}: {e})"
             )
         )
         return None
     if not steps:
-        warnings.caption("Mapillary doesn't have street-level photos along this route.")
+        st.caption("Mapillary doesn't have street-level photos along this route.")
         return None
     return RoutePreview(
         step_data(route.points, steps, segments),
@@ -283,4 +293,8 @@ def show_scoring_criteria():
         )
 
 
-asyncio.run(show_routes())
+highlighted = asyncio.run(show_routes())
+# outside the event loop, since fragments can't be async
+if highlighted:
+    with preview_area:
+        street_preview_section(*highlighted)
