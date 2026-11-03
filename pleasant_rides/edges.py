@@ -90,3 +90,11 @@ def posted(edges: list[Edge]):
 
 def total_km(edges: list[Edge]):
     return sum(e["length"] for e in edges)
+
+
+# exact, by the international yard and pound agreement of 1959
+KM_PER_MILE = 1.609344
+
+
+def total_miles(edges: list[Edge]):
+    return total_km(edges) / KM_PER_MILE

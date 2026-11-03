@@ -197,7 +197,7 @@ def test_table_row():
     assert row["Score"] == 75
     assert row["Routing s"] == 5
     assert row["Long score"] == 80
-    assert row["Long km"] == 100
+    assert row["Long mi"] == pytest.approx(100 / 1.609344)
     assert row["Long s"] == 2
 
 

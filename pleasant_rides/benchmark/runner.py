@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 from .. import map_matching, scoring, surroundings
+from ..edges import total_km
 from ..map_matching import Edge
 from ..metrics import Ride
 from ..models import Point, Route
@@ -163,4 +164,4 @@ class _Run:
         if isinstance(edges, str):
             return edges
         card = scoring.score(Ride(route, edges, around))
-        return TripScore(card.total, card.values["distance_km"], seconds)
+        return TripScore(card.total, total_km(edges), seconds)

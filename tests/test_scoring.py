@@ -35,7 +35,7 @@ def measure(edges, surroundings=None):
 
 def test_share_of_distance():
     values = measure([BIKE_PATH, BUSY_ROAD])
-    assert values["distance_km"] == 2
+    assert values["distance_mi"] == pytest.approx(2 / 1.609344)
     assert values["low_traffic"] == 0.5
 
 

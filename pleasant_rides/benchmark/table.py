@@ -3,6 +3,7 @@
 import statistics
 from collections.abc import Mapping
 
+from ..edges import KM_PER_MILE
 from ..trips import TRIPS, short
 from .runner import TripResult, TripScore
 from .variants import VARIANTS
@@ -20,7 +21,7 @@ def table_row(name: str, trips: Mapping[str, TripResult]):
         result = trips.get(trip)
         ok = isinstance(result, TripScore)
         cells[f"{short(trip)} score"] = result.score if ok else None
-        cells[f"{short(trip)} km"] = result.km if ok else None
+        cells[f"{short(trip)} mi"] = result.km / KM_PER_MILE if ok else None
         cells[f"{short(trip)} s"] = result.seconds if ok else None
     return {
         "Variant": name,

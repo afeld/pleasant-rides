@@ -17,7 +17,7 @@ from .edges import (
     is_walking,
     posted,
     roads,
-    total_km,
+    total_miles,
     turns,
 )
 from .metrics import (
@@ -34,7 +34,7 @@ from .metrics import (
 
 # in the order they're shown, grouped as in the README
 METRICS = [
-    Total("distance_km", "Distance (km)", compute=total_km),
+    Total("distance_mi", "Distance (mi)", compute=total_miles),
     # "not necessarily the most direct, but it shouldn't add a ton of time"
     Detour(
         "detour",

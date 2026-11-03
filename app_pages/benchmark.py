@@ -49,8 +49,8 @@ COLUMNS = {
         format="%.1f",
     ),
     **{
-        f"{short(t)} km": st.column_config.NumberColumn(
-            f"{short(t)} km", help=t, format="%.0f"
+        f"{short(t)} mi": st.column_config.NumberColumn(
+            f"{short(t)} mi", help=t, format="%.0f"
         )
         for t in TRIPS
     },
