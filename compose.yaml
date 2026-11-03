@@ -1,7 +1,8 @@
-# A local BRouter server (https://github.com/abrensch/brouter), so routing doesn't depend on the busy public one. It's the same image as the deployed one (see brouter/Dockerfile). See "Local BRouter" in the README.
+# Local routing servers, so routing doesn't depend on the busy (or paid) public ones. They're the same images as the deployed ones. See "Local BRouter" and "Local GraphHopper" in the README.
 name: pleasant-rides
 
 services:
+  # https://github.com/abrensch/brouter; see brouter/Dockerfile
   brouter:
     build:
       context: brouter
@@ -10,3 +11,14 @@ services:
         TILES: ${BROUTER_TILES:-W75_N40}
     ports:
       - 127.0.0.1:17777:17777
+
+  # https://github.com/graphhopper/graphhopper; see graphhopper/Dockerfile
+  graphhopper:
+    build:
+      context: graphhopper
+      args:
+        # Geofabrik extracts to download and the part of them to keep; see graphhopper/Dockerfile
+        REGIONS: ${GRAPHHOPPER_REGIONS:-north-america/us/new-york north-america/us/new-jersey north-america/us/connecticut}
+        BBOX: ${GRAPHHOPPER_BBOX--75,40,-70,45}
+    ports:
+      - 127.0.0.1:8989:8989
