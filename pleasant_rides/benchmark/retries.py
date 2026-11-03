@@ -36,7 +36,7 @@ class Backoffs:
                 return await call()
             except MissingAPIKey as e:
                 return f"skipped ({e})"
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 error = f"{type(e).__name__}: {e}"
                 if is_rate_limited(e):
                     self.reasons[server] = (

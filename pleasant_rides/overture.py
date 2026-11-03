@@ -105,7 +105,7 @@ def latest_release():
     if not _stac_down():
         try:
             return core.get_latest_release()
-        except Exception as e:  # the library wraps every error in a plain Exception
+        except Exception as e:  # noqa: BLE001 # the library wraps every error in a plain Exception
             _stac_failed("the latest release", e)
     releases = _s3().get_file_info(fs.FileSelector(f"{BUCKET}/release/"))
     return max(info.base_name for info in releases)

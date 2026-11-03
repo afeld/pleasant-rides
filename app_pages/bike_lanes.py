@@ -15,7 +15,7 @@ st.caption(
 
 try:
     compared, as_of = compare_bike_lanes()
-except Exception as e:
+except Exception as e:  # noqa: BLE001
     # nothing's cached when fetching fails, so reloading the page tries again
     st.error(f"{type(e).__name__}: {e}", title="Couldn't fetch the bike lanes")
     st.stop()

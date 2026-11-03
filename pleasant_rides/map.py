@@ -62,14 +62,15 @@ class OpenFreeMapLayer(JSCSSMixin, MacroElement):
         {% endmacro %}
     """)
 
-    default_js = [
+    # folium declares these as plain class attributes, so pyright rejects ClassVar here
+    default_js = [  # noqa: RUF012
         ("maplibre-gl", "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"),
         (
             "maplibre-gl-leaflet",
             "https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js",
         ),
     ]
-    default_css = [
+    default_css = [  # noqa: RUF012
         (
             "maplibre-gl-css",
             "https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css",
