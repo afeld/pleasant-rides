@@ -154,11 +154,13 @@ The app runs on [Fly.io](https://fly.io/), which stops it when nobody's connecte
    fly secrets set STREAMLIT_SECRETS="$(base64 < .streamlit/secrets.toml)"
    ```
 
-1. Deploy, which also creates the cache volume the first time. `--ha=false` keeps it to one machine, since the cache volume can only be attached to one, and one is plenty:
+1. Deploy the first time, which also creates the cache volume. `--ha=false` keeps it to one machine, since the cache volume can only be attached to one, and one is plenty:
 
    ```sh
    fly deploy --ha=false
    ```
+
+After that, pushes to `main` deploy automatically, through Fly's GitHub integration (set up in the [app's dashboard](https://fly.io/apps/pleasant-rides)). Later deploys update the existing machine, so they don't need `--ha=false`.
 
 To change who has access, edit the [test users](https://console.cloud.google.com/auth/audience?project=pleasant-rides). It takes effect on their next sign-in, without a deploy.
 
