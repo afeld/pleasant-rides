@@ -13,4 +13,7 @@ primary_region = "ewr"
   min_machines_running = 0
 
 [[vm]]
+  # routing is CPU-bound: on a shared CPU, Fly throttles it to its baseline once the burst runs out, which left Java with ~8% of a core, so even a one-block route took 8 s and longer ones timed out
+  cpu_kind = "performance"
+  cpus = 1
   memory = "2gb"
