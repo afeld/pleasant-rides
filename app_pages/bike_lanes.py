@@ -3,7 +3,7 @@ import pandas as pd
 import pydeck as pdk
 import streamlit as st
 
-from pleasant_rides import bike_lanes, missing_lanes
+from pleasant_rides import bike_lanes
 from pleasant_rides.cached import compare_bike_lanes
 from pleasant_rides.units import METERS_PER_MILE
 
@@ -188,22 +188,4 @@ st.pydeck_chart(
     ),
     height=700,
     alt="Map of New York City's bike lanes in each source",
-)
-
-st.subheader("Missing from OpenStreetMap")
-st.caption(
-    f"NYC Open Data's lanes that OpenStreetMap doesn't have, as GeoJSON with one feature per task, e.g. for a [MapRoulette](https://maproulette.org/) challenge or a reference layer in JOSM. "
-    f"A lane counts as missing if OpenStreetMap has less than {missing_lanes.MISSING_SHARE:.0%} of it, and lanes are joined end to end into stretches between intersections, leaving out ones shorter than {missing_lanes.MIN_LENGTH_M} m. "
-    "Check each against imagery before mapping it, since NYC DOT's data can include lanes that aren't on the street (yet)."
-)
-st.download_button(
-    "Download GeoJSON",
-    # only built when clicked, since joining the lanes takes a moment
-    lambda: missing_lanes.to_geojson(
-        missing_lanes.missing(compared, bike_lanes.NYC, bike_lanes.OSM)
-    ),
-    file_name="nyc-lanes-missing-from-osm.geojson",
-    mime="application/geo+json",
-    on_click="ignore",
-    icon=":material/download:",
 )
