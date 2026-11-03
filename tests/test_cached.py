@@ -87,3 +87,23 @@ def test_score_ride_is_cached_until_the_scoring_code_changes(
     monkeypatch.setattr(cached, "_SCORING_CODE", "changed")
     cached.score_ride(ride)
     assert len(scored) == 2
+
+
+def test_score_ride_is_kept_across_restarts(monkeypatch: pytest.MonkeyPatch):
+    scored = []
+
+    def score(ride: Ride):
+        scored.append(ride)
+        return Scorecard({}, 50.0)
+
+    monkeypatch.setattr(cached.scoring, "score", score)
+    monkeypatch.setattr(cached, "_latest_release", lambda: "2026-01-01.0")
+    cached._score.clear()
+    ride = Ride((Point(40.0, -74.0), Point(40.01, -74.0)), [], None)
+
+    cached.score_ride(ride)
+    # forgets what's in memory, as a restart does
+    cache_data_api._data_caches._function_caches.clear()
+
+    assert cached.score_ride(ride).total == 50
+    assert len(scored) == 1
