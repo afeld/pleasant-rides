@@ -6,6 +6,9 @@ import time
 
 import httpx
 
+# for routing requests, which took at most ~7 s (BRouter on the longest sample trip) when measured, so that a server that's down doesn't hold things up for long. Map-matching (`map_matching.get_edges()`) keeps its own, since changing its code would change its cache key and so map-match every route again.
+TIMEOUT_S = 20
+
 # server -> when the next request to it may be made, from time.monotonic()
 _next_slot: dict[str, float] = {}
 

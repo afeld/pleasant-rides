@@ -4,6 +4,7 @@ import polyline
 
 from .. import http_client
 from ..models import Point
+from ..politeness import TIMEOUT_S
 from .base import Provider
 
 URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
@@ -37,7 +38,7 @@ class Google(Provider):
                     "travelMode": "BICYCLE",
                     "computeAlternativeRoutes": True,
                 },
-                timeout=60.0,
+                timeout=TIMEOUT_S,
             )
         response.raise_for_status()
         routes = response.json().get("routes", [])

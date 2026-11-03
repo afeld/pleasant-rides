@@ -1,5 +1,6 @@
 from .. import http_client
 from ..models import Point
+from ..politeness import TIMEOUT_S
 from .base import Provider
 
 URL = "https://api.cyclemate.club/directions/v2/"
@@ -25,7 +26,7 @@ class Cyclemate(Provider):
                     "profile": "cycling",
                     "supersafe": True,
                 },
-                timeout=60.0,
+                timeout=TIMEOUT_S,
             )
         response.raise_for_status()
         route = response.json()["route"]

@@ -6,7 +6,7 @@ import httpx
 
 from .. import http_client
 from ..models import Point
-from ..politeness import ProviderError
+from ..politeness import TIMEOUT_S, ProviderError
 from .base import Provider
 
 PUBLIC_URL = "https://brouter.de/brouter"
@@ -89,7 +89,7 @@ class BRouter(Provider):
                     "format": "geojson",
                     **self._overrides(),
                 },
-                timeout=120.0,
+                timeout=TIMEOUT_S,
             )
         if response.is_error:
             if isinstance(self.profile, Path):
@@ -104,7 +104,7 @@ class BRouter(Provider):
 async def _upload(client: httpx.AsyncClient, url: str, profile: Path):
     """Returns the ID the server gives the profile."""
     response = await client.post(
-        f"{url}/profile", content=profile.read_text(), timeout=30.0
+        f"{url}/profile", content=profile.read_text(), timeout=TIMEOUT_S
     )
     body = response.json()
     if response.is_error or "error" in body:

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from ..models import Point
+from ..politeness import TIMEOUT_S
 from .base import Provider
 
 SOURCE = Path(__file__).with_suffix(".swift")
@@ -49,12 +50,12 @@ class Apple(Provider):
             str(destination.lon),
         )
         try:
-            stdout = await _run(*args, timeout=60)
+            stdout = await _run(*args, timeout=TIMEOUT_S)
         except subprocess.CalledProcessError as e:
             # a negative code is the signal that killed it: MapKit occasionally segfaults on a request that works when tried again
             if e.returncode >= 0:
                 raise
-            stdout = await _run(*args, timeout=60)
+            stdout = await _run(*args, timeout=TIMEOUT_S)
         routes = json.loads(stdout)
         return [(_label(r), r["points"]) for r in routes]
 

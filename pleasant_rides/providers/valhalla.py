@@ -5,6 +5,7 @@ import polyline
 
 from .. import http_client
 from ..models import Point
+from ..politeness import TIMEOUT_S
 from .base import Provider
 
 SERVER = "valhalla1.openstreetmap.de"
@@ -59,7 +60,7 @@ class Valhalla(Provider):
             response = await client.get(
                 URL,
                 params={"json": json.dumps(params, separators=(",", ":"))},
-                timeout=60.0,
+                timeout=TIMEOUT_S,
             )
         response.raise_for_status()
         payload = response.json()

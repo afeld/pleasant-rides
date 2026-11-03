@@ -1,6 +1,6 @@
 from .. import http_client
 from ..models import Point
-from ..politeness import status_error
+from ..politeness import TIMEOUT_S, status_error
 from .base import Provider
 
 URL = "https://graphhopper.com/api/1/route"
@@ -65,7 +65,7 @@ class GraphHopper(Provider):
             body["ch.disable"] = True
         async with http_client.client() as client:
             response = await client.post(
-                URL, params={"key": api_key}, json=body, timeout=60.0
+                URL, params={"key": api_key}, json=body, timeout=TIMEOUT_S
             )
         if response.is_error:
             # the status alone doesn't say what was wrong with the request
