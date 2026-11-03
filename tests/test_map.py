@@ -58,7 +58,7 @@ def test_highlight_colored_by_segment_scores():
     m = build_map(
         [A, B, C], highlight=C, segments=[Segment(1.0, 100.0), Segment(1.0, 0.0)]
     )
-    *routes, outline, good, bad = lines(m)
+    *routes, _outline, good, bad = lines(m)
     assert len(routes) == 3
     assert good.locations[-1] == bad.locations[0]
     assert good.options["color"] != bad.options["color"]

@@ -98,7 +98,7 @@ def test_metric_keys_are_unique():
 
 def test_fewer_lanes_score_better():
     lanes = next(m for m in METRICS if m.key == "lanes")
-    one, two, four = (
+    one, _two, four = (
         {"length": 1.0, "use": "road", "road_class": "residential", "lane_count": n}
         for n in (1, 2, 4)
     )
