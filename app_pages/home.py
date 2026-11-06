@@ -18,12 +18,12 @@ st.caption(
     "Anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [the README](https://github.com/afeld/pleasant-rides#running)."
 )
 
-st.header("Working definition")
+st.header("Working definition", divider="rainbow")
 st.markdown('A "pleasant" bike ride is:')
 enjoyable, easy, safe = (
     column.container(border=True, height="stretch") for column in st.columns(3)
 )
-enjoyable.subheader("Enjoyable", icon=":material/park:", anchor=False)
+enjoyable.subheader(":green[Enjoyable]", icon=":material/park:", anchor=False)
 enjoyable.markdown(
     """
     - Things to look at, such as:
@@ -33,7 +33,7 @@ enjoyable.markdown(
     - Quiet
     """
 )
-easy.subheader("Easy", icon=":material/sentiment_satisfied:", anchor=False)
+easy.subheader(":orange[Easy]", icon=":material/sentiment_satisfied:", anchor=False)
 easy.markdown(
     """
     - Avoids steep climbs/descents
@@ -48,7 +48,7 @@ easy.markdown(
       - Stairs
     """
 )
-safe.subheader("Safe", icon=":material/health_and_safety:", anchor=False)
+safe.subheader(":violet[Safe]", icon=":material/health_and_safety:", anchor=False)
 safe.markdown(
     """
     - Minimal:

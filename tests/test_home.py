@@ -8,4 +8,6 @@ def test_app_opens_on_overview():
 
     assert not app.exception
     assert app.title[0].value == "Pleasant Rides"
-    assert [block.value for block in app.subheader] == ["Enjoyable", "Easy", "Safe"]
+    text = " ".join(block.value for block in app.subheader)
+    for quality in ("Enjoyable", "Easy", "Safe"):
+        assert quality in text
