@@ -1,29 +1,50 @@
 """The homepage: what this project is, and what it means by a pleasant ride."""
 
+import base64
+from pathlib import Path
+
 import streamlit as st
 
-st.title("Pleasant Rides", icon=":material/directions_bike:")
-st.markdown(
-    'Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn\'t always desirable. This project is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.'
+HERE = Path(__file__).parent
+
+
+def svg_url(name: str):
+    """A CSS url() of an SVG file. It's embedded because st.html removes inline SVGs."""
+    data = base64.b64encode((HERE / name).read_bytes()).decode()
+    return f"url(data:image/svg+xml;base64,{data})"
+
+
+st.html(HERE / "home.css")
+st.html(
+    f"<style>.st-key-home-hero {{ --sky: {svg_url('home-sky.svg')}; --meadow: {svg_url('home-meadow.svg')}; }}</style>"
 )
 
-with st.container(horizontal=True):
-    st.page_link(
-        "app_pages/planner.py", label="Compare routes", icon=":material/route:"
+with st.container(key="home-hero", horizontal_alignment="center"):
+    st.title(":green-background[Pleasant] Rides", text_alignment="center")
+    st.markdown(
+        'Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn\'t always desirable. This project is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.',
+        width=720,
+        text_alignment="center",
     )
-    st.page_link(
-        "app_pages/bike_lanes.py", label="Bike lanes", icon=":material/add_road:"
-    )
+    with st.container(horizontal=True, horizontal_alignment="center", key="home-links"):
+        st.page_link(
+            "app_pages/planner.py", label="Compare routes", icon=":material/route:"
+        )
+        st.page_link(
+            "app_pages/bike_lanes.py", label="Bike lanes", icon=":material/add_road:"
+        )
 st.caption(
-    "Anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [the README](https://github.com/afeld/pleasant-rides#running)."
+    "Anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [the README](https://github.com/afeld/pleasant-rides#running).",
+    text_alignment="center",
 )
 
-st.header("Working definition", divider="rainbow")
-st.markdown('A "pleasant" bike ride is:')
+st.header("Working definition", text_alignment="center")
+st.markdown('A "pleasant" bike ride is:', text_alignment="center")
 enjoyable, easy, safe = (
-    column.container(border=True, height="stretch") for column in st.columns(3)
+    column.container(key=f"card-{name}", height="stretch")
+    for name, column in zip(("enjoyable", "easy", "safe"), st.columns(3))
 )
-enjoyable.subheader(":green[Enjoyable]", icon=":material/park:", anchor=False)
+enjoyable.subheader("Enjoyable", icon=":material/park:", anchor=False)
 enjoyable.markdown(
     """
     - Things to look at, such as:
@@ -33,7 +54,7 @@ enjoyable.markdown(
     - Quiet
     """
 )
-easy.subheader(":orange[Easy]", icon=":material/sentiment_satisfied:", anchor=False)
+easy.subheader("Easy", icon=":material/sentiment_satisfied:", anchor=False)
 easy.markdown(
     """
     - Avoids steep climbs/descents
@@ -48,7 +69,7 @@ easy.markdown(
       - Stairs
     """
 )
-safe.subheader(":violet[Safe]", icon=":material/health_and_safety:", anchor=False)
+safe.subheader("Safe", icon=":material/health_and_safety:", anchor=False)
 safe.markdown(
     """
     - Minimal:

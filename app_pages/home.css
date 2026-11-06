@@ -1,0 +1,59 @@
+/* The homepage's outdoor scene, cards, and links, which Streamlit's theme can't do. They use the same colors in light and dark mode, with their own text color, so that they stay daylit against either background. */
+.st-key-home-hero {
+  /* --sky and --meadow are set in home.py. The minimum widths keep the art from getting tiny on phones, where it's cropped instead. */
+  background:
+    var(--meadow) center bottom / max(100%, 880px) auto no-repeat,
+    var(--sky) center top / max(100%, 1200px) auto no-repeat,
+    linear-gradient(#a5e3f7, #e6f8dc);
+  /* leaves room for the meadow, which scales with the width */
+  padding: 3.5rem 1.5rem max(15rem, 27%);
+}
+
+/* cartoon outlines, with a shadow offset as if it were drawn */
+.st-key-home-hero,
+[class*="st-key-card-"] {
+  border: 4px solid #12201a;
+  border-radius: 1.75rem;
+  box-shadow: 6px 6px 0 #12201a;
+}
+.st-key-home-hero,
+.st-key-home-hero * {
+  color: #12201a;
+}
+
+[class*="st-key-card-"] {
+  padding: 1.5rem;
+}
+[class*="st-key-card-"],
+[class*="st-key-card-"] * {
+  color: #12201a;
+}
+.st-key-card-enjoyable {
+  background: #c8f04b;
+}
+.st-key-card-easy {
+  background: #8fd3f7;
+}
+.st-key-card-safe {
+  background: #f9a8d4;
+}
+
+.st-key-home-links a {
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 700;
+  background: #f9a8d4;
+  border: 3px solid #12201a;
+  box-shadow: 3px 3px 0 #12201a;
+}
+.st-key-home-links a,
+.st-key-home-links a * {
+  color: #12201a;
+}
+.st-key-home-links > div:first-child a {
+  background: #186a33;
+}
+.st-key-home-links > div:first-child a,
+.st-key-home-links > div:first-child a * {
+  color: #ffffff;
+}
