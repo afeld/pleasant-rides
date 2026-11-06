@@ -120,22 +120,40 @@ _SURFACES = {
 }
 
 
-def describe(edge: Edge):
-    """What a road segment is like, e.g. "secondary road, 2 lanes, protected bike lane, paved"."""
+def road_kind(edge: Edge):
+    """What kind of way a road segment is, e.g. "secondary road" or "cycleway"."""
     use = edge.get("use", "road")
     if use != "road":
-        parts = [use.replace("_", " ")]
-    else:
-        road_class = edge.get("road_class")
-        parts = [
-            _ROAD_CLASSES.get(road_class, f"{road_class} road")
-            if road_class
-            else "road"
-        ]
-        if lanes := edge.get("lane_count"):
-            parts.append(f"{lanes} lane{'' if lanes == 1 else 's'}")
-        if (lane := edge.get("cycle_lane", "none")) != "none":
-            parts.append(f"{_CYCLE_LANES.get(lane, lane)} bike lane")
-    if surface := edge.get("surface"):
-        parts.append(_SURFACES.get(surface) or surface.replace("_", " "))
-    return ", ".join(parts)
+        return use.replace("_", " ")
+    road_class = edge.get("road_class")
+    if not road_class:
+        return "road"
+    return _ROAD_CLASSES.get(road_class, f"{road_class} road")
+
+
+def bike_lane_kind(edge: Edge):
+    """The bike lane on a road, e.g. "protected bike lane", or None if it doesn't have one."""
+    lane = edge.get("cycle_lane", "none")
+    if edge.get("use", "road") != "road" or lane == "none":
+        return None
+    return f"{_CYCLE_LANES.get(lane, lane)} bike lane"
+
+
+def surface_kind(edge: Edge):
+    """A road segment's surface, e.g. "smooth pavement", or None if it isn't known."""
+    surface = edge.get("surface")
+    if not surface:
+        return None
+    return _SURFACES.get(surface) or surface.replace("_", " ")
+
+
+def describe(edge: Edge):
+    """What a road segment is like, e.g. "secondary road, 2 lanes, protected bike lane, paved"."""
+    lanes = edge.get("lane_count") if edge.get("use", "road") == "road" else None
+    parts = [
+        road_kind(edge),
+        lanes and f"{lanes} lane{'' if lanes == 1 else 's'}",
+        bike_lane_kind(edge),
+        surface_kind(edge),
+    ]
+    return ", ".join(part for part in parts if part)
