@@ -16,6 +16,9 @@ TRIPS = {
     ),
 }
 
+# the choice for planning your own, between an origin and destination typed in
+CUSTOM_TRIP = "Custom…"
+
 
 def short(trip: str):
     """e.g. "Long" from "Long: Brooklyn→Beacon"."""

@@ -5,17 +5,10 @@ import pandas as pd
 import streamlit as st
 
 from pleasant_rides import login, street_photos
-from pleasant_rides.cached import (
-    fetch_routes,
-    geocode,
-    get_edges,
-    get_surroundings,
-    route_steps,
-    score_ride,
-)
+from pleasant_rides.cached import fetch_routes, geocode, get_edges, route_steps
 from pleasant_rides.edges import describe
 from pleasant_rides.map import Segment, build_map
-from pleasant_rides.metrics import Metric, Ride
+from pleasant_rides.metrics import Metric
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey
@@ -30,13 +23,11 @@ from pleasant_rides.route_export import (
     to_gpx,
 )
 from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
+from pleasant_rides.scored_routes import score_routes
 from pleasant_rides.scoring import METRICS, Scorecard, edge_scores
-from pleasant_rides.surroundings import Surroundings
-from pleasant_rides.trips import TRIPS
+from pleasant_rides.trips import CUSTOM_TRIP, TRIPS
 
 st.title("Pleasant Ride Planner")
-
-CUSTOM_TRIP = "Custom…"
 
 
 def custom_trip():
@@ -262,39 +253,6 @@ async def street_preview(route: Route, segments: list[Segment]):
         route_miles(route.points),
         open=just_asked,
     )
-
-
-async def score_routes(routes: list[Route]):
-    """Returns [(route, Scorecard), ...], warning about any routes that couldn't be scored."""
-    # the surroundings of all the routes are fetched at once, since they mostly overlap
-    surroundings_task = asyncio.create_task(
-        get_surroundings(tuple(route.points for route in routes))
-    )
-    results = await asyncio.gather(
-        *(get_edges(route.points) for route in routes), return_exceptions=True
-    )
-    surroundings = await surroundings_or_warn(surroundings_task)
-    scored: list[tuple[Route, Scorecard]] = []
-    for route, result in zip(routes, results):
-        if isinstance(result, BaseException):
-            st.warning(
-                redact(
-                    f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"
-                )
-            )
-        else:
-            scored.append((route, score_ride(Ride(route.points, result, surroundings))))
-    return scored
-
-
-async def surroundings_or_warn(task: asyncio.Task[Surroundings]):
-    try:
-        return await task
-    except Exception as error:  # noqa: BLE001
-        st.warning(
-            f"Couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({type(error).__name__}: {error})"
-        )
-        return None
 
 
 def show_score_table(scored: list[tuple[Route, Scorecard]]):
