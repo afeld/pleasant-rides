@@ -1,0 +1,52 @@
+# GraphHopper's settings, for importing the routing data (in graphhopper/Dockerfile) and serving it. Based on https://github.com/graphhopper/graphhopper/blob/11.0/config-example.yml.
+graphhopper:
+  # the OpenStreetMap data, only read by the import (in the Dockerfile), which saves the graph to graph.location for the server to load
+  datareader.file: /osm/map.osm.pbf
+  graph.location: graph-cache
+  # the same as graphhopper.com's "bike" profile, with elevation making climbs slower. Requests can add a custom model on top of it (see pleasant_rides/providers/graphhopper.py), which the hosted API only allows on paid plans. To add others, e.g. racingbike or mtb (see the built-in models at https://github.com/graphhopper/graphhopper/tree/11.0/core/src/main/resources/com/graphhopper/custom_models), add them here and to profiles_lm, along with the encoded values they need, and rebuild.
+  profiles:
+    - name: bike
+      custom_model_files: [bike.json, bike_elevation.json]
+
+  # landmarks, which speed up routing while still allowing a custom model per request (unlike contraction hierarchies, "profiles_ch")
+  profiles_ch: []
+  profiles_lm:
+    - profile: bike
+
+  # what the bike profile needs, plus what pleasant_rides/providers/graphhopper.py's custom model uses (max_speed, bike_network, surface)
+  graph.encoded_values: bike_priority, bike_access, roundabout, bike_average_speed, bike_road_access, foot_road_access, average_slope, mtb_rating, hike_rating, country, road_class, max_speed, bike_network, surface
+
+  # elevation from SRTM, downloaded during the import, for average_slope
+  graph.elevation.provider: srtm
+  graph.elevation.cache_dir: /tmp/srtm
+
+  prepare.min_network_size: 200
+  prepare.subnetworks.threads: 1
+  routing.snap_preventions_default: tunnel, bridge, ferry
+  # long trips without contraction hierarchies, in meters
+  routing.non_ch.max_waypoint_distance: 1000000
+  routing.max_visited_nodes: 3000000
+  # bikes can't use these
+  import.osm.ignored_highways: motorway, trunk
+  # mapped from disk rather than loaded into memory, so the server needs little memory
+  graph.dataaccess.default_type: MMAP
+
+server:
+  application_connectors:
+    - type: http
+      port: 8989
+      # reachable from outside the container
+      bind_host: 0.0.0.0
+      max_request_header_size: 50k
+  request_log:
+    appenders: []
+  admin_connectors:
+    - type: http
+      port: 8990
+      bind_host: localhost
+
+logging:
+  appenders:
+    - type: console
+      time_zone: UTC
+      log_format: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

@@ -85,6 +85,6 @@ VARIANTS: dict[str, Provider] = {
         )
         for strength in [1, 2, 4, 8]
     },
-    # other cycling profiles and custom models need a paid plan
+    # on GraphHopper's hosted API, custom models (and other cycling profiles) need a paid plan; our own server (GRAPHHOPPER_URL; see graphhopper/Dockerfile) allows them
     "GraphHopper: custom model": GraphHopper(custom_model=True),
 }
