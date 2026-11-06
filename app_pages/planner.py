@@ -17,7 +17,8 @@ from pleasant_rides.scored_routes import score_routes
 from pleasant_rides.scoring import METRICS, Scorecard
 from pleasant_rides.trips import CUSTOM_TRIP, TRIPS
 
-st.title("Pleasant Ride Planner", icon=":material/route:")
+with st.container(key="card-blue-title"):
+    st.title("Pleasant Ride Planner", icon=":material/route:")
 
 
 def custom_trip():

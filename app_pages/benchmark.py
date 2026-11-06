@@ -18,7 +18,8 @@ from pleasant_rides.cached import (
 )
 from pleasant_rides.trips import TRIPS, short
 
-st.title("Benchmark", icon=":material/speed:")
+with st.container(key="card-pink-title"):
+    st.title("Benchmark", icon=":material/speed:")
 st.caption(
     "Scores each variant's first route on a few sample trips. Variants are defined in `pleasant_rides/benchmark/variants.py`. "
     "Results come from the providers' live servers, so compare against the `(current)` baselines from the same run."

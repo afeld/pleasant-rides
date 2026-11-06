@@ -1,23 +1,10 @@
 """The homepage: what this project is, and what it means by a pleasant ride."""
 
-import base64
 from pathlib import Path
 
 import streamlit as st
 
-HERE = Path(__file__).parent
-
-
-def svg_url(name: str):
-    """A CSS url() of an SVG file. It's embedded because st.html removes inline SVGs."""
-    data = base64.b64encode((HERE / name).read_bytes()).decode()
-    return f"url(data:image/svg+xml;base64,{data})"
-
-
-st.html(HERE / "home.css")
-st.html(
-    f"<style>.st-key-home-hero {{ --sky: {svg_url('home-sky.svg')}; --meadow: {svg_url('home-meadow.svg')}; }}</style>"
-)
+st.html(Path(__file__).with_name("home.css"))
 
 with st.container(key="home-hero", horizontal_alignment="center"):
     st.title(":green-background[Pleasant] Rides", text_alignment="center")
@@ -42,7 +29,7 @@ st.header("Working definition", text_alignment="center")
 st.markdown('A "pleasant" bike ride is:', text_alignment="center")
 enjoyable, easy, safe = (
     column.container(key=f"card-{name}", height="stretch")
-    for name, column in zip(("enjoyable", "easy", "safe"), st.columns(3))
+    for name, column in zip(("lime-enjoyable", "blue-easy", "pink-safe"), st.columns(3))
 )
 enjoyable.subheader("Enjoyable", icon=":material/park:", anchor=False)
 enjoyable.markdown(

@@ -142,7 +142,8 @@ route = next((r for r in routes if r.label == params.get("route")), None)
 if not route:
     not_found()
 
-st.title(f"{route.provider}: {route.label}", icon=":material/route:")
+with st.container(key="card-blue-title"):
+    st.title(f"{route.provider}: {route.label}", icon=":material/route:")
 st.caption(trip if trip in TRIPS else f"{origin_query} → {destination_query}")
 
 export_section(route)
@@ -160,20 +161,20 @@ edges = asyncio.run(get_edges(route.points))
 metrics = {m.key: m for m in METRICS}
 
 with st.container(horizontal=True):
-    st.metric(
-        "Score",
-        f"{card.total:.0f}",
-        help="Out of 100; see how it scored, below",
-        border=True,
-    )
+    with st.container(key="card-lime-score"):
+        st.metric(
+            "Score",
+            f"{card.total:.0f}",
+            help="Out of 100; see how it scored, below",
+        )
     for key in HEADLINE_METRICS:
         metric = metrics[key]
-        st.metric(
-            metric.label,
-            format_value(metric, card.values[key]),
-            help=metric.help or None,
-            border=True,
-        )
+        with st.container(key=f"card-pink-{key}"):
+            st.metric(
+                metric.label,
+                format_value(metric, card.values[key]),
+                help=metric.help or None,
+            )
 
 st.iframe(
     build_map([route], route, route_segments(edges)).get_root().render(),

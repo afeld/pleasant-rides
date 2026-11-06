@@ -1,3 +1,28 @@
+/* Color-blocked cards, which the theme can't do. A container gets this from a key starting with "card-lime-", "card-blue-", or "card-pink-". They keep their colors and dark text in light and dark mode, so don't put anything in them that uses the theme's own backgrounds, like code. */
+[class*="st-key-card-"] {
+  padding: 1.25rem 1.5rem;
+  border: 4px solid #12201a;
+  border-radius: 1.75rem;
+  box-shadow: 6px 6px 0 #12201a;
+}
+[class*="st-key-card-"],
+[class*="st-key-card-"] * {
+  color: #12201a;
+}
+/* help icons, which Streamlit colors with a more specific rule */
+[class*="st-key-card-"] svg {
+  stroke: #12201a !important;
+}
+[class*="st-key-card-lime-"] {
+  background: #c8f04b;
+}
+[class*="st-key-card-blue-"] {
+  background: #8fd3f7;
+}
+[class*="st-key-card-pink-"] {
+  background: #f9a8d4;
+}
+
 /* Action buttons, in the same cartoon style as the homepage, which the theme can't do. A button or link gets this from a key starting with "action-", or "action-primary-" for the main action on a page. They keep their own colors in light and dark mode. */
 [class*="st-key-action-"] button,
 [class*="st-key-action-"] a,
