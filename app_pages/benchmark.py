@@ -18,7 +18,8 @@ from pleasant_rides.cached import (
 )
 from pleasant_rides.trips import TRIPS, short
 
-st.title("Benchmark")
+with st.container(key="card-pink-title"):
+    st.title("Benchmark", icon=":material/speed:")
 st.caption(
     "Scores each variant's first route on a few sample trips. Variants are defined in `pleasant_rides/benchmark/variants.py`. "
     "Results come from the providers' live servers, so compare against the `(current)` baselines from the same run."
@@ -27,7 +28,7 @@ st.caption(
 if login.signed_in():
     with st.form("benchmark"):
         selected = st.multiselect("Variants", list(VARIANTS), default=list(VARIANTS))
-        run_now = st.form_submit_button("Run")
+        run_now = st.form_submit_button("Run", type="primary", key="action-primary-run")
 else:
     login.sign_in("run the benchmark")
     selected, run_now = list(VARIANTS), False

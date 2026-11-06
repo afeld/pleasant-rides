@@ -17,7 +17,8 @@ from pleasant_rides.scored_routes import score_routes
 from pleasant_rides.scoring import METRICS, Scorecard
 from pleasant_rides.trips import CUSTOM_TRIP, TRIPS
 
-st.title("Pleasant Ride Planner")
+with st.container(key="card-blue-title"):
+    st.title("Pleasant Ride Planner", icon=":material/route:")
 
 
 def custom_trip():
@@ -31,7 +32,7 @@ def custom_trip():
         destination = col2.text_input(
             "Destination", "Beacon, NY", key="destination", bind="query-params"
         )
-        st.form_submit_button("Route")
+        st.form_submit_button("Route", type="primary", key="action-primary-route")
     try:
         return geocode(origin), geocode(destination)
     except IndexError:
@@ -177,7 +178,7 @@ async def street_preview(route: Route, segments: list[Segment]):
     just_asked = st.button(
         "Preview street-level photos",
         icon=":material/photo_camera:",
-        key=f"{key}:button",
+        key=f"action-{key}:button",
     )
     if just_asked:
         st.session_state[key] = True
@@ -263,6 +264,7 @@ def route_details_button(route: Route):
         type="primary",
         icon=":material/arrow_forward:",
         icon_position="right",
+        key="action-primary-route-details",
     ):
         return
     custom = (

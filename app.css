@@ -1,0 +1,67 @@
+/* Color-blocked cards, which the theme can't do. A container gets this from a key starting with "card-lime-", "card-blue-", or "card-pink-". They keep their colors and dark text in light and dark mode, so don't put anything in them that uses the theme's own backgrounds, like code. */
+[class*="st-key-card-"] {
+  padding: 1.25rem 1.5rem;
+  border: 4px solid #12201a;
+  border-radius: 1.75rem;
+  box-shadow: 6px 6px 0 #12201a;
+}
+[class*="st-key-card-"],
+[class*="st-key-card-"] * {
+  color: #12201a;
+}
+/* help icons, which Streamlit colors with a more specific rule */
+[class*="st-key-card-"] svg {
+  stroke: #12201a !important;
+}
+[class*="st-key-card-lime-"] {
+  background: #c8f04b;
+}
+[class*="st-key-card-blue-"] {
+  background: #8fd3f7;
+}
+[class*="st-key-card-pink-"] {
+  background: #f9a8d4;
+}
+
+/* Action buttons, in the same cartoon style as the homepage, which the theme can't do. A button or link gets this from a key starting with "action-", or "action-primary-" for the main action on a page. They keep their own colors in light and dark mode. */
+[class*="st-key-action-"] button,
+[class*="st-key-action-"] a,
+.st-key-home-links a {
+  padding: 0.5rem 1.25rem;
+  border: 3px solid #12201a;
+  border-radius: 999px;
+  box-shadow: 3px 3px 0 #12201a;
+  background: #f9a8d4;
+  font-weight: 700;
+}
+[class*="st-key-action-"] button:hover,
+[class*="st-key-action-"] a:hover,
+.st-key-home-links a:hover {
+  border-color: #12201a;
+  background: #fbc0e0;
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 #12201a;
+}
+[class*="st-key-action-"] button,
+[class*="st-key-action-"] button *,
+[class*="st-key-action-"] a,
+[class*="st-key-action-"] a *,
+.st-key-home-links a,
+.st-key-home-links a * {
+  color: #12201a;
+}
+
+[class*="st-key-action-primary-"] button,
+.st-key-home-links > div:first-child a {
+  background: #186a33;
+}
+[class*="st-key-action-primary-"] button:hover,
+.st-key-home-links > div:first-child a:hover {
+  background: #1f7a3d;
+}
+[class*="st-key-action-primary-"] button,
+[class*="st-key-action-primary-"] button *,
+.st-key-home-links > div:first-child a,
+.st-key-home-links > div:first-child a * {
+  color: #ffffff;
+}

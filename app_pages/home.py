@@ -1,30 +1,39 @@
 """The homepage: what this project is, and what it means by a pleasant ride."""
 
+from pathlib import Path
+
 import streamlit as st
 
-st.title("Pleasant Rides")
-st.markdown(
-    'Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn\'t always desirable. This project is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.'
-)
+st.html(Path(__file__).with_name("home.css"))
 
-with st.container(horizontal=True):
-    st.page_link(
-        "app_pages/planner.py", label="Compare routes", icon=":material/route:"
+with st.container(key="home-hero", horizontal_alignment="center"):
+    st.title(":green-background[Pleasant] Rides", text_alignment="center")
+    st.markdown(
+        'Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn\'t always desirable. This project is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.',
+        width=720,
+        text_alignment="center",
     )
-    st.page_link(
-        "app_pages/bike_lanes.py", label="Bike lanes", icon=":material/directions_bike:"
-    )
+    with st.container(horizontal=True, horizontal_alignment="center", key="home-links"):
+        st.page_link(
+            "app_pages/planner.py", label="Compare routes", icon=":material/route:"
+        )
+        st.page_link(
+            "app_pages/bike_lanes.py", label="Bike lanes", icon=":material/add_road:"
+        )
 st.caption(
-    "Anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [the README](https://github.com/afeld/pleasant-rides#running)."
+    "Anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [the README](https://github.com/afeld/pleasant-rides#running).",
+    text_alignment="center",
 )
 
-st.header("Working definition")
-st.markdown('A "pleasant" bike ride is:')
-enjoyable, easy, safe = st.columns(3)
+st.header("Working definition", text_alignment="center")
+st.markdown('A "pleasant" bike ride is:', text_alignment="center")
+enjoyable, easy, safe = (
+    column.container(key=f"card-{name}", height="stretch")
+    for name, column in zip(("lime-enjoyable", "blue-easy", "pink-safe"), st.columns(3))
+)
+enjoyable.subheader("Enjoyable", icon=":material/park:", anchor=False)
 enjoyable.markdown(
     """
-    **Enjoyable**
-
     - Things to look at, such as:
       - Nature
       - Good views
@@ -32,10 +41,9 @@ enjoyable.markdown(
     - Quiet
     """
 )
+easy.subheader("Easy", icon=":material/sentiment_satisfied:", anchor=False)
 easy.markdown(
     """
-    **Easy**
-
     - Avoids steep climbs/descents
     - Simple navigation
       - Not many turns
@@ -48,10 +56,9 @@ easy.markdown(
       - Stairs
     """
 )
+safe.subheader("Safe", icon=":material/health_and_safety:", anchor=False)
 safe.markdown(
     """
-    **Safe**
-
     - Minimal:
       - Vehicular traffic
       - Intersections

@@ -7,7 +7,8 @@ from pleasant_rides import bike_lanes, lane_selection
 from pleasant_rides.cached import compare_bike_lanes
 from pleasant_rides.units import METERS_PER_MILE
 
-st.title("Bike lanes")
+with st.container(key="card-lime-title"):
+    st.title("Bike lanes", icon=":material/add_road:")
 st.caption(
     "New York City's bike lanes as mapped in OpenStreetMap, Overture Maps, and NYC DOT's [bike routes](https://data.cityofnewyork.us/d/mzxg-pwib) on NYC Open Data. "
     f"A stretch of lane counts as being in another source if one of its lanes is within {bike_lanes.MATCH_DISTANCE_M} m, whatever its type, since the sources draw on-street lanes in different places (NYC Open Data on the street's centerline, OpenStreetMap often along the curb)."
@@ -28,12 +29,13 @@ COLORS = {
 
 with st.container(horizontal=True):
     for source, frame in compared.items():
-        st.metric(
-            source,
-            f"{frame['length_m'].sum() / METERS_PER_MILE:,.0f} mi",
-            help=f"Data as of {as_of[source]}",
-            border=True,
-        )
+        # the same color for all of them, since each source already has its own on the map
+        with st.container(key=f"card-blue-{source}"):
+            st.metric(
+                source,
+                f"{frame['length_m'].sum() / METERS_PER_MILE:,.0f} mi",
+                help=f"Data as of {as_of[source]}",
+            )
 st.caption(
     "How fresh each source is: OpenStreetMap is edited continuously, and the Overpass API has edits within minutes. "
     "Overture puts out a [new release](https://docs.overturemaps.org/release-calendar/) monthly. "
@@ -86,7 +88,7 @@ st.altair_chart(
         color=alt.Color(
             "share:Q",
             title=None,
-            scale=alt.Scale(scheme="blues", domain=[0, 1]),
+            scale=alt.Scale(scheme="purplered", domain=[0, 1]),
             legend=alt.Legend(format="%"),
         )
     )
@@ -160,7 +162,7 @@ def layer(source: str):
 
 st.markdown(
     " ".join(
-        f":material/horizontal_rule: <span style='color: rgb({', '.join(map(str, COLORS[s]))})'>{s}</span>"
+        f"<span style='color: rgb({', '.join(map(str, COLORS[s]))})'>&#9632;</span> {s}"
         for s in sources
     ),
     unsafe_allow_html=True,
