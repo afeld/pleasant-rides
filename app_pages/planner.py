@@ -19,6 +19,15 @@ from pleasant_rides.metrics import Metric, Ride
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey
+from pleasant_rides.route_export import (
+    MAX_WAYPOINTS,
+    MAX_WAYPOINTS_MOBILE,
+    RIDE_WITH_GPS_UPLOAD_URL,
+    google_maps_url,
+    gpx_filename,
+    is_mobile,
+    to_gpx,
+)
 from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
 from pleasant_rides.scoring import METRICS, Scorecard, edge_scores
 from pleasant_rides.surroundings import Surroundings
@@ -167,6 +176,39 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     return None
 
 
+def export_section(route: Route):
+    """Buttons to get the route into a navigation app."""
+    max_waypoints = (
+        MAX_WAYPOINTS_MOBILE
+        if is_mobile(st.context.headers.get("User-Agent"))
+        else MAX_WAYPOINTS
+    )
+    with st.container(horizontal=True):
+        st.download_button(
+            "Download GPX",
+            # only built when clicked
+            lambda: to_gpx(route),
+            file_name=gpx_filename(route),
+            mime="application/gpx+xml",
+            on_click="ignore",
+            icon=":material/download:",
+        )
+        st.link_button(
+            "Upload to Ride with GPS",
+            RIDE_WITH_GPS_UPLOAD_URL,
+            icon=":material/upload:",
+            help="Opens their upload page, to add the downloaded GPX file to",
+        )
+        st.link_button(
+            "Open in Google Maps",
+            google_maps_url(route, max_waypoints),
+            icon=":material/navigation:",
+        )
+    st.caption(
+        f"Google Maps only gets {max_waypoints} points along the route and picks its own way between them, so it may differ. The GPX file has the exact route."
+    )
+
+
 # A fragment, so that the preview button only reruns this, rather than scoring all the routes again, which takes ~4 s. Its button and messages are in its own body (in `preview_area`); the map is the only thing it draws outside of it, which it does every time, since Streamlit only lets a fragment rerun write to outside containers it wrote to in the full run.
 @st.fragment
 def street_preview_section(
@@ -262,7 +304,9 @@ def show_score_table(scored: list[tuple[Route, Scorecard]]):
         for route, card in scored
     ]
     st.subheader("Scores")
-    st.caption("Select a row to highlight that route on the map.")
+    st.caption(
+        "Select a row to highlight that route on the map and send it to a navigation app."
+    )
     st.dataframe(
         rows,
         key=table_key,
@@ -304,4 +348,5 @@ highlighted = asyncio.run(show_routes())
 # outside the event loop, since fragments can't be async
 if highlighted:
     with preview_area:
+        export_section(highlighted[1])
         street_preview_section(*highlighted)
