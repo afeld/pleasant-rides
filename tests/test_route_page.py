@@ -132,3 +132,23 @@ def test_custom_trips_need_signing_in(
     assert not app.exception
     assert fetch_routes.await_count == 0
     assert not app.metric
+
+
+def test_offers_the_route_to_navigation_apps(fetch_routes: AsyncMock):
+    app = open_route(trip_name=TRIP, provider="Valhalla", route="Primary")
+
+    assert not app.exception
+    assert [b.proto.label for b in app.get("download_button")] == ["Download GPX"]
+    assert [b.proto.label for b in app.get("link_button")] == [
+        "Upload to Ride with GPS",
+        "Open in Google Maps",
+    ]
+
+
+def test_only_offers_googles_routes_through_google_maps(fetch_routes: AsyncMock):
+    fetch_routes.return_value = [Route("Google Maps", "Best", ROUTE.points)]
+    app = open_route(trip_name=TRIP, provider="Google Maps", route="Best")
+
+    assert not app.exception
+    assert not app.get("download_button")
+    assert [b.proto.label for b in app.get("link_button")] == ["Open in Google Maps"]

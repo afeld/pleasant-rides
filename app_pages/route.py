@@ -8,7 +8,7 @@ import streamlit as st
 from pleasant_rides import login
 from pleasant_rides.cached import fetch_routes, geocode, get_edges
 from pleasant_rides.map import build_map
-from pleasant_rides.models import Point
+from pleasant_rides.models import Point, Route
 from pleasant_rides.providers import PROVIDERS, redact
 from pleasant_rides.route_details import (
     MIXES,
@@ -18,6 +18,16 @@ from pleasant_rides.route_details import (
     mix,
     route_segments,
     stretches,
+)
+from pleasant_rides.route_export import (
+    MAX_WAYPOINTS,
+    MAX_WAYPOINTS_MOBILE,
+    RIDE_WITH_GPS_UPLOAD_URL,
+    allows_file_export,
+    google_maps_url,
+    gpx_filename,
+    is_mobile,
+    to_gpx,
 )
 from pleasant_rides.scored_routes import score_routes
 from pleasant_rides.scoring import METRICS
@@ -74,6 +84,42 @@ def trip_ends() -> tuple[Point, Point]:
         not_found()
 
 
+def export_section(route: Route):
+    """Buttons to get the route into a navigation app."""
+    max_waypoints = (
+        MAX_WAYPOINTS_MOBILE
+        if is_mobile(st.context.headers.get("User-Agent"))
+        else MAX_WAYPOINTS
+    )
+    file_export = allows_file_export(route)
+    with st.container(horizontal=True):
+        if file_export:
+            st.download_button(
+                "Download GPX",
+                # only built when clicked
+                lambda: to_gpx(route),
+                file_name=gpx_filename(route),
+                mime="application/gpx+xml",
+                on_click="ignore",
+                icon=":material/download:",
+            )
+            st.link_button(
+                "Upload to Ride with GPS",
+                RIDE_WITH_GPS_UPLOAD_URL,
+                icon=":material/upload:",
+                help="Opens their upload page, to add the downloaded GPX file to",
+            )
+        st.link_button(
+            "Open in Google Maps",
+            google_maps_url(route, max_waypoints),
+            icon=":material/navigation:",
+        )
+    exact = " The GPX file has the exact route." if file_export else ""
+    st.caption(
+        f"Google Maps only gets {max_waypoints} points along the route and picks its own way between them, so it may differ.{exact}"
+    )
+
+
 provider = PROVIDERS.get(params.get("provider", ""))
 if not provider:
     not_found()
@@ -95,6 +141,8 @@ if not route:
 
 st.title(f"{route.provider}: {route.label}")
 st.caption(trip if trip in TRIPS else f"{origin_query} → {destination_query}")
+
+export_section(route)
 
 with st.spinner("Scoring the route…"):
     scored = asyncio.run(score_routes([route]))
