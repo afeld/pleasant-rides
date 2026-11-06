@@ -86,7 +86,7 @@ st.altair_chart(
         color=alt.Color(
             "share:Q",
             title=None,
-            scale=alt.Scale(scheme="greens", domain=[0, 1]),
+            scale=alt.Scale(scheme="purplered", domain=[0, 1]),
             legend=alt.Legend(format="%"),
         )
     )
