@@ -9,6 +9,7 @@ import gpxpy.gpx
 from pyproj import Geod
 
 from .models import Point, Route
+from .providers.google import Google
 
 _GEOD = Geod(ellps="WGS84")
 # https://developers.google.com/maps/documentation/urls/get-started#directions-action
@@ -16,6 +17,11 @@ MAX_WAYPOINTS = 9
 MAX_WAYPOINTS_MOBILE = 3
 # where Ride with GPS takes files: https://support.ridewithgps.com/hc/en-us/articles/4419024044827-Upload-Activities-Routes-GPS-Files
 RIDE_WITH_GPS_UPLOAD_URL = "https://ridewithgps.com/upload"
+
+
+def allows_file_export(route: Route):
+    """Whether the route can leave as a file, which Google's routes can't, to stay clear of Google Maps Platform's limits on exporting its content: https://cloud.google.com/maps-platform/terms"""
+    return route.provider != Google.name
 
 
 def to_gpx(route: Route):

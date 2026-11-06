@@ -7,6 +7,7 @@ from pleasant_rides.models import Point, Route
 from pleasant_rides.route_export import (
     MAX_WAYPOINTS,
     MAX_WAYPOINTS_MOBILE,
+    allows_file_export,
     google_maps_url,
     gpx_filename,
     is_mobile,
@@ -29,6 +30,13 @@ def test_gpx_keeps_every_point_in_order():
     assert [(p.latitude, p.longitude) for p in track.segments[0].points] == [
         (p.lat, p.lon) for p in POINTS
     ]
+
+
+@pytest.mark.parametrize(
+    "provider, expected", [("Valhalla", True), ("Google Maps", False)]
+)
+def test_allows_file_export(provider: str, expected: bool):
+    assert allows_file_export(Route(provider, "Primary", POINTS)) is expected
 
 
 def test_gpx_filename_is_safe():

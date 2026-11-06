@@ -23,6 +23,7 @@ from pleasant_rides.route_export import (
     MAX_WAYPOINTS,
     MAX_WAYPOINTS_MOBILE,
     RIDE_WITH_GPS_UPLOAD_URL,
+    allows_file_export,
     google_maps_url,
     gpx_filename,
     is_mobile,
@@ -183,29 +184,32 @@ def export_section(route: Route):
         if is_mobile(st.context.headers.get("User-Agent"))
         else MAX_WAYPOINTS
     )
+    file_export = allows_file_export(route)
     with st.container(horizontal=True):
-        st.download_button(
-            "Download GPX",
-            # only built when clicked
-            lambda: to_gpx(route),
-            file_name=gpx_filename(route),
-            mime="application/gpx+xml",
-            on_click="ignore",
-            icon=":material/download:",
-        )
-        st.link_button(
-            "Upload to Ride with GPS",
-            RIDE_WITH_GPS_UPLOAD_URL,
-            icon=":material/upload:",
-            help="Opens their upload page, to add the downloaded GPX file to",
-        )
+        if file_export:
+            st.download_button(
+                "Download GPX",
+                # only built when clicked
+                lambda: to_gpx(route),
+                file_name=gpx_filename(route),
+                mime="application/gpx+xml",
+                on_click="ignore",
+                icon=":material/download:",
+            )
+            st.link_button(
+                "Upload to Ride with GPS",
+                RIDE_WITH_GPS_UPLOAD_URL,
+                icon=":material/upload:",
+                help="Opens their upload page, to add the downloaded GPX file to",
+            )
         st.link_button(
             "Open in Google Maps",
             google_maps_url(route, max_waypoints),
             icon=":material/navigation:",
         )
+    exact = " The GPX file has the exact route." if file_export else ""
     st.caption(
-        f"Google Maps only gets {max_waypoints} points along the route and picks its own way between them, so it may differ. The GPX file has the exact route."
+        f"Google Maps only gets {max_waypoints} points along the route and picks its own way between them, so it may differ.{exact}"
     )
 
 
