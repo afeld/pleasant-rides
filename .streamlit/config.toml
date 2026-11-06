@@ -3,37 +3,34 @@ runOnSave = true
 # the Bike lanes map is ~9 MB of JSON, which compresses to ~1 MB
 enableWebsocketCompression = true
 
-# Saturated yellow and hot pink in light mode, electric indigo in dark mode, to keep things bold. Light and dark are both defined so that the app follows the viewer's system setting and keeps Streamlit's appearance toggle. Text colors meet WCAG AA (at least 4.5:1), except for links in captions in light mode, since Streamlit fades captions, and white on the pink primary buttons in dark mode (~3.5:1), since a darker pink makes the many selected pills, whose text is that color, hard to read.
+# Cream and forest green to feel like being outdoors, with bright lime, sky blue, and pink on the homepage. Its cartoon scene and cards are in `app_pages/`, since the theme can't do those. Light and dark are both defined so that the app follows the viewer's system setting and keeps Streamlit's appearance toggle. Text colors meet WCAG AA (at least 4.5:1), except for links in captions in light mode, since Streamlit fades captions, and selected pills in dark mode (~3.4:1), since a lighter green would fail with white text on the primary buttons.
 [theme]
 font = "Nunito:https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap"
-headingFont = "Fredoka:https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap"
-headingFontWeights = [600, 600, 500, 500, 500, 500]
+headingFont = "Fredoka:https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap"
+headingFontSizes = ["3.75rem", "2.5rem", "1.5rem", "1.25rem", "1.125rem", "1rem"]
+headingFontWeights = [700, 700, 600, 600, 600, 600]
 baseRadius = "1rem"
 buttonRadius = "full"
 showWidgetBorder = true
 
 [theme.light]
-primaryColor = "#A30050"
-backgroundColor = "#FFD60A"
-secondaryBackgroundColor = "#FFF3A3"
+primaryColor = "#186A33"
+backgroundColor = "#F8F5E8"
+secondaryBackgroundColor = "#ECE8D3"
 # this dark since captions are this at 60% opacity, which still needs to pass
-textColor = "#12002E"
-linkColor = "#0033CC"
-borderColor = "#12002E"
-dataframeHeaderBackgroundColor = "#FFF3A3"
-# Streamlit's defaults are too light on the yellow background
-greenTextColor = "#006B2E"
-orangeTextColor = "#A81E00"
-violetTextColor = "#5A00C8"
+textColor = "#0B1510"
+linkColor = "#1A6B35"
+borderColor = "#D3CEB2"
+dataframeHeaderBackgroundColor = "#ECE8D3"
+greenBackgroundColor = "#C8F04B"
 
 [theme.dark]
-primaryColor = "#FF2E88"
-backgroundColor = "#14005C"
-secondaryBackgroundColor = "#3A00C4"
-textColor = "#FFFFFF"
-linkColor = "#FFE600"
-borderColor = "#FFE600"
-dataframeHeaderBackgroundColor = "#3A00C4"
-greenTextColor = "#3DFF8F"
-orangeTextColor = "#FFA24D"
-violetTextColor = "#C79BFF"
+primaryColor = "#2B8649"
+backgroundColor = "#10201A"
+secondaryBackgroundColor = "#1B3328"
+textColor = "#F8F5E8"
+linkColor = "#C8F04B"
+borderColor = "#34503F"
+dataframeHeaderBackgroundColor = "#1B3328"
+# stays lime, since it's on the daylit scene in both modes
+greenBackgroundColor = "#C8F04B"
