@@ -256,17 +256,22 @@ def show_scoring_criteria():
         )
 
 
-def route_link(route: Route):
-    """A link to the route's own page, which finds it again from these."""
+def route_details_button(route: Route):
+    """A button for the route's own page, which finds it again from these. A button rather than `st.page_link()`, which can't be made to stand out."""
+    if not st.button(
+        "Route details",
+        type="primary",
+        icon=":material/arrow_forward:",
+        icon_position="right",
+    ):
+        return
     custom = (
         {"from": st.session_state["origin"], "to": st.session_state["destination"]}
         if trip == CUSTOM_TRIP
         else {}
     )
-    st.page_link(
+    st.switch_page(
         "app_pages/route.py",
-        label="Route details",
-        icon=":material/info:",
         query_params={
             "trip_name": trip,
             **custom,
@@ -280,5 +285,5 @@ highlighted = asyncio.run(show_routes())
 # outside the event loop, since fragments can't be async
 if highlighted:
     with preview_area:
-        route_link(highlighted[1])
+        route_details_button(highlighted[1])
         street_preview_section(*highlighted)
