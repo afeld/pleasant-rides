@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-st.title("Pleasant Rides")
+st.title("Pleasant Rides", icon=":material/directions_bike:")
 st.markdown(
     'Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn\'t always desirable. This project is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.'
 )
@@ -12,7 +12,7 @@ with st.container(horizontal=True):
         "app_pages/planner.py", label="Compare routes", icon=":material/route:"
     )
     st.page_link(
-        "app_pages/bike_lanes.py", label="Bike lanes", icon=":material/directions_bike:"
+        "app_pages/bike_lanes.py", label="Bike lanes", icon=":material/add_road:"
     )
 st.caption(
     "Anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [the README](https://github.com/afeld/pleasant-rides#running)."
@@ -20,11 +20,12 @@ st.caption(
 
 st.header("Working definition")
 st.markdown('A "pleasant" bike ride is:')
-enjoyable, easy, safe = st.columns(3)
+enjoyable, easy, safe = (
+    column.container(border=True, height="stretch") for column in st.columns(3)
+)
+enjoyable.subheader("Enjoyable", icon=":material/park:", anchor=False)
 enjoyable.markdown(
     """
-    **Enjoyable**
-
     - Things to look at, such as:
       - Nature
       - Good views
@@ -32,10 +33,9 @@ enjoyable.markdown(
     - Quiet
     """
 )
+easy.subheader("Easy", icon=":material/sentiment_satisfied:", anchor=False)
 easy.markdown(
     """
-    **Easy**
-
     - Avoids steep climbs/descents
     - Simple navigation
       - Not many turns
@@ -48,10 +48,9 @@ easy.markdown(
       - Stairs
     """
 )
+safe.subheader("Safe", icon=":material/health_and_safety:", anchor=False)
 safe.markdown(
     """
-    **Safe**
-
     - Minimal:
       - Vehicular traffic
       - Intersections

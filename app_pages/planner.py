@@ -17,7 +17,7 @@ from pleasant_rides.scored_routes import score_routes
 from pleasant_rides.scoring import METRICS, Scorecard
 from pleasant_rides.trips import CUSTOM_TRIP, TRIPS
 
-st.title("Pleasant Ride Planner")
+st.title("Pleasant Ride Planner", icon=":material/route:")
 
 
 def custom_trip():
@@ -31,7 +31,7 @@ def custom_trip():
         destination = col2.text_input(
             "Destination", "Beacon, NY", key="destination", bind="query-params"
         )
-        st.form_submit_button("Route")
+        st.form_submit_button("Route", type="primary")
     try:
         return geocode(origin), geocode(destination)
     except IndexError:

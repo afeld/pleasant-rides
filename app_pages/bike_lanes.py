@@ -7,7 +7,7 @@ from pleasant_rides import bike_lanes, lane_selection
 from pleasant_rides.cached import compare_bike_lanes
 from pleasant_rides.units import METERS_PER_MILE
 
-st.title("Bike lanes")
+st.title("Bike lanes", icon=":material/add_road:")
 st.caption(
     "New York City's bike lanes as mapped in OpenStreetMap, Overture Maps, and NYC DOT's [bike routes](https://data.cityofnewyork.us/d/mzxg-pwib) on NYC Open Data. "
     f"A stretch of lane counts as being in another source if one of its lanes is within {bike_lanes.MATCH_DISTANCE_M} m, whatever its type, since the sources draw on-street lanes in different places (NYC Open Data on the street's centerline, OpenStreetMap often along the curb)."
@@ -86,7 +86,7 @@ st.altair_chart(
         color=alt.Color(
             "share:Q",
             title=None,
-            scale=alt.Scale(scheme="blues", domain=[0, 1]),
+            scale=alt.Scale(scheme="greens", domain=[0, 1]),
             legend=alt.Legend(format="%"),
         )
     )
