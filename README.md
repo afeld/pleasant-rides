@@ -1,43 +1,8 @@
 # Pleasant Ride Planner
 
-Mapping apps are good at getting you from place to place, but they generally optimize for minimum travel time. For travel by bike, that isn't always desirable. This repository is exploring what it would mean to find the "most pleasant" bike route from A to B. This applies within cities/towns, and also in more rural areas.
+Finds the "most pleasant" bike route from A to B. See [pleasant-rides.afeld.me](https://pleasant-rides.afeld.me) for the project overview, the sample trips, and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [Running](#running).
 
 ![screenshot of analysis page](analysis.png)
-
-It's at [pleasant-rides.afeld.me](https://pleasant-rides.afeld.me), where anyone can see the sample trips and the bike lanes. Planning your own trips is by invitation; to run it yourself, see [Running](#running).
-
-## Working definition
-
-A "pleasant" bike ride is:
-
-- **Enjoyable**
-  - Things to look at, such as:
-    - Nature
-    - Good views
-  - Points of interest
-  - Quiet
-- **Easy**
-  - Avoids steep climbs/descents
-  - Simple navigation
-    - Not many turns
-  - Smooth-ish surface, such as:
-    - Pavement
-    - Boardwalks (where cycling is permitted)
-    - Crushed gravel
-  - Minimal walking required, such as:
-    - One-ways
-    - Stairs
-- **Safe**
-  - Minimal:
-    - Vehicular traffic
-    - Intersections
-  - If there _are_ motor vehicles:
-    - A low speed limit
-    - The fewer lanes, the better
-  - Not _too_ remote
-    - Theoretically walkable to somewhere you can get help if you need.
-
-A pleasant ride is _not necessarily_ the most direct, but it shouldn't add a ton of time over the most direct route, either. Similarly, a pleasant route isn't necessarily the most popular one.
 
 ## Running
 
@@ -195,8 +160,3 @@ uv run pyright
 ```
 
 The tests don't make network requests. GitHub Actions runs both on pushes to `main` and on pull requests.
-
-## See also
-
-- [Cyclemate](https://cyclemate.club/)
-  - [Methodology](https://cyclemate.club/supersafe)
