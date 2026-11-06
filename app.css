@@ -1,0 +1,42 @@
+/* Action buttons, in the same cartoon style as the homepage, which the theme can't do. A button or link gets this from a key starting with "action-", or "action-primary-" for the main action on a page. They keep their own colors in light and dark mode. */
+[class*="st-key-action-"] button,
+[class*="st-key-action-"] a,
+.st-key-home-links a {
+  padding: 0.5rem 1.25rem;
+  border: 3px solid #12201a;
+  border-radius: 999px;
+  box-shadow: 3px 3px 0 #12201a;
+  background: #f9a8d4;
+  font-weight: 700;
+}
+[class*="st-key-action-"] button:hover,
+[class*="st-key-action-"] a:hover,
+.st-key-home-links a:hover {
+  border-color: #12201a;
+  background: #fbc0e0;
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 #12201a;
+}
+[class*="st-key-action-"] button,
+[class*="st-key-action-"] button *,
+[class*="st-key-action-"] a,
+[class*="st-key-action-"] a *,
+.st-key-home-links a,
+.st-key-home-links a * {
+  color: #12201a;
+}
+
+[class*="st-key-action-primary-"] button,
+.st-key-home-links > div:first-child a {
+  background: #186a33;
+}
+[class*="st-key-action-primary-"] button:hover,
+.st-key-home-links > div:first-child a:hover {
+  background: #1f7a3d;
+}
+[class*="st-key-action-primary-"] button,
+[class*="st-key-action-primary-"] button *,
+.st-key-home-links > div:first-child a,
+.st-key-home-links > div:first-child a * {
+  color: #ffffff;
+}

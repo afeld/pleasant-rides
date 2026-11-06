@@ -24,7 +24,12 @@ def sign_in(reason: str):
             "Sign-in isn't set up: `.streamlit/secrets.toml` needs an `[auth]` section."
         )
         return
-    st.button(f"Sign in with Google to {reason}", type="primary", on_click=st.login)
+    st.button(
+        f"Sign in with Google to {reason}",
+        type="primary",
+        key="action-primary-sign-in",
+        on_click=st.login,
+    )
     # Google shows its own error to anyone who isn't a test user, which can't be customized, so this is the place to say how to get access
     st.caption(
         "Access is by invitation. To get it, send Aidan the email address of the Google account you'll sign in with."

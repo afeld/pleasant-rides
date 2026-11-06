@@ -102,17 +102,20 @@ def export_section(route: Route):
                 mime="application/gpx+xml",
                 on_click="ignore",
                 icon=":material/download:",
+                key="action-download-gpx",
             )
             st.link_button(
                 "Upload to Ride with GPS",
                 RIDE_WITH_GPS_UPLOAD_URL,
                 icon=":material/upload:",
+                key="action-ride-with-gps",
                 help="Opens their upload page, to add the downloaded GPX file to",
             )
         st.link_button(
             "Open in Google Maps",
             google_maps_url(route, max_waypoints),
             icon=":material/navigation:",
+            key="action-google-maps",
         )
     exact = " The GPX file has the exact route." if file_export else ""
     st.caption(
@@ -139,7 +142,7 @@ route = next((r for r in routes if r.label == params.get("route")), None)
 if not route:
     not_found()
 
-st.title(f"{route.provider}: {route.label}")
+st.title(f"{route.provider}: {route.label}", icon=":material/route:")
 st.caption(trip if trip in TRIPS else f"{origin_query} → {destination_query}")
 
 export_section(route)

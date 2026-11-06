@@ -23,6 +23,7 @@ linkColor = "#1A6B35"
 borderColor = "#D3CEB2"
 dataframeHeaderBackgroundColor = "#ECE8D3"
 greenBackgroundColor = "#C8F04B"
+chartCategoricalColors = ["#2E9E4F", "#E8479B", "#2F6FD0", "#E0851A", "#7A4FD0"]
 
 [theme.dark]
 primaryColor = "#2B8649"
@@ -34,3 +35,4 @@ borderColor = "#34503F"
 dataframeHeaderBackgroundColor = "#1B3328"
 # stays lime, since it's on the daylit scene in both modes
 greenBackgroundColor = "#C8F04B"
+chartCategoricalColors = ["#9BDB4D", "#FF7FC0", "#6FB6F2", "#F5B83D", "#B79BFF"]

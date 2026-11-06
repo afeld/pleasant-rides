@@ -31,7 +31,7 @@ def custom_trip():
         destination = col2.text_input(
             "Destination", "Beacon, NY", key="destination", bind="query-params"
         )
-        st.form_submit_button("Route", type="primary")
+        st.form_submit_button("Route", type="primary", key="action-primary-route")
     try:
         return geocode(origin), geocode(destination)
     except IndexError:
@@ -177,7 +177,7 @@ async def street_preview(route: Route, segments: list[Segment]):
     just_asked = st.button(
         "Preview street-level photos",
         icon=":material/photo_camera:",
-        key=f"{key}:button",
+        key=f"action-{key}:button",
     )
     if just_asked:
         st.session_state[key] = True
@@ -263,6 +263,7 @@ def route_details_button(route: Route):
         type="primary",
         icon=":material/arrow_forward:",
         icon_position="right",
+        key="action-primary-route-details",
     ):
         return
     custom = (

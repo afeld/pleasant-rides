@@ -27,7 +27,7 @@ st.caption(
 if login.signed_in():
     with st.form("benchmark"):
         selected = st.multiselect("Variants", list(VARIANTS), default=list(VARIANTS))
-        run_now = st.form_submit_button("Run", type="primary")
+        run_now = st.form_submit_button("Run", type="primary", key="action-primary-run")
 else:
     login.sign_in("run the benchmark")
     selected, run_now = list(VARIANTS), False

@@ -1,4 +1,4 @@
-/* The homepage's outdoor scene, cards, and links, which Streamlit's theme can't do. They use the same colors in light and dark mode, with their own text color, so that they stay daylit against either background. */
+/* The homepage's outdoor scene and cards, which Streamlit's theme can't do. They use the same colors in light and dark mode, with their own text color, so that they stay daylit against either background. */
 .st-key-home-hero {
   /* --sky and --meadow are set in home.py. The minimum widths keep the art from getting tiny on phones, where it's cropped instead. */
   background:
@@ -36,24 +36,4 @@
 }
 .st-key-card-safe {
   background: #f9a8d4;
-}
-
-.st-key-home-links a {
-  padding: 0.5rem 1.25rem;
-  border-radius: 999px;
-  font-weight: 700;
-  background: #f9a8d4;
-  border: 3px solid #12201a;
-  box-shadow: 3px 3px 0 #12201a;
-}
-.st-key-home-links a,
-.st-key-home-links a * {
-  color: #12201a;
-}
-.st-key-home-links > div:first-child a {
-  background: #186a33;
-}
-.st-key-home-links > div:first-child a,
-.st-key-home-links > div:first-child a * {
-  color: #ffffff;
 }

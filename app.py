@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import streamlit as st
 
 st.set_page_config(page_title="Pleasant Rides", page_icon="🚲", layout="wide")
+st.html(Path(__file__).with_name("app.css"))
 page = st.navigation(
     [
         st.Page(
