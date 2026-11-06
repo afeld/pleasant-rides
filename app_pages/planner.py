@@ -5,38 +5,19 @@ import pandas as pd
 import streamlit as st
 
 from pleasant_rides import login, street_photos
-from pleasant_rides.cached import (
-    fetch_routes,
-    geocode,
-    get_edges,
-    get_surroundings,
-    route_steps,
-    score_ride,
-)
-from pleasant_rides.edges import describe
+from pleasant_rides.cached import fetch_routes, geocode, get_edges, route_steps
 from pleasant_rides.map import Segment, build_map
-from pleasant_rides.metrics import Metric, Ride
+from pleasant_rides.metrics import Metric
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey
-from pleasant_rides.route_export import (
-    MAX_WAYPOINTS,
-    MAX_WAYPOINTS_MOBILE,
-    RIDE_WITH_GPS_UPLOAD_URL,
-    allows_file_export,
-    google_maps_url,
-    gpx_filename,
-    is_mobile,
-    to_gpx,
-)
+from pleasant_rides.route_details import route_segments
 from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
-from pleasant_rides.scoring import METRICS, Scorecard, edge_scores
-from pleasant_rides.surroundings import Surroundings
-from pleasant_rides.trips import TRIPS
+from pleasant_rides.scored_routes import score_routes
+from pleasant_rides.scoring import METRICS, Scorecard
+from pleasant_rides.trips import CUSTOM_TRIP, TRIPS
 
 st.title("Pleasant Ride Planner")
-
-CUSTOM_TRIP = "Custom…"
 
 
 def custom_trip():
@@ -100,14 +81,13 @@ def all_routes(provider_routes: dict[str, list[Route]]):
 
 def draw_map(
     provider_routes: dict[str, list[Route]],
-    segments: list[Segment] | None = None,
     preview: RoutePreview | None = None,
 ):
-    """`segments` are the highlighted route's, to color it by, and `preview` its street-level preview."""
+    """`preview` is the highlighted route's street-level preview."""
     routes = all_routes(provider_routes)
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
-        m = build_map(routes, highlight, segments)
+        m = build_map(routes, highlight)
         if preview:
             preview.add_to(m)
         with map_placeholder:
@@ -168,49 +148,9 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     highlight = next((r for r, _ in scored if r.id == highlight_id), None)
     if highlight:
         # already fetched (and cached) for scoring
-        edges = await get_edges(highlight.points)
-        segments = [
-            Segment(e["length"], s, describe(e))
-            for e, s in zip(edges, edge_scores(edges))
-        ]
+        segments = route_segments(await get_edges(highlight.points))
         return provider_routes, highlight, segments
     return None
-
-
-def export_section(route: Route):
-    """Buttons to get the route into a navigation app."""
-    max_waypoints = (
-        MAX_WAYPOINTS_MOBILE
-        if is_mobile(st.context.headers.get("User-Agent"))
-        else MAX_WAYPOINTS
-    )
-    file_export = allows_file_export(route)
-    with st.container(horizontal=True):
-        if file_export:
-            st.download_button(
-                "Download GPX",
-                # only built when clicked
-                lambda: to_gpx(route),
-                file_name=gpx_filename(route),
-                mime="application/gpx+xml",
-                on_click="ignore",
-                icon=":material/download:",
-            )
-            st.link_button(
-                "Upload to Ride with GPS",
-                RIDE_WITH_GPS_UPLOAD_URL,
-                icon=":material/upload:",
-                help="Opens their upload page, to add the downloaded GPX file to",
-            )
-        st.link_button(
-            "Open in Google Maps",
-            google_maps_url(route, max_waypoints),
-            icon=":material/navigation:",
-        )
-    exact = " The GPX file has the exact route." if file_export else ""
-    st.caption(
-        f"Google Maps only gets {max_waypoints} points along the route and picks its own way between them, so it may differ.{exact}"
-    )
 
 
 # A fragment, so that the preview button only reruns this, rather than scoring all the routes again, which takes ~4 s. Its button and messages are in its own body (in `preview_area`); the map is the only thing it draws outside of it, which it does every time, since Streamlit only lets a fragment rerun write to outside containers it wrote to in the full run.
@@ -219,7 +159,7 @@ def street_preview_section(
     provider_routes: dict[str, list[Route]], route: Route, segments: list[Segment]
 ):
     preview = asyncio.run(street_preview(route, segments))
-    draw_map(provider_routes, segments, preview)
+    draw_map(provider_routes, preview)
 
 
 async def street_preview(route: Route, segments: list[Segment]):
@@ -257,44 +197,12 @@ async def street_preview(route: Route, segments: list[Segment]):
         st.caption("Mapillary doesn't have street-level photos along this route.")
         return None
     return RoutePreview(
-        step_data(route.points, steps, segments),
+        # without their scores, since the swatches they'd color wouldn't mean anything without the route page's legend
+        step_data(route.points, steps, [s._replace(score=None) for s in segments]),
         token,
         route_miles(route.points),
         open=just_asked,
     )
-
-
-async def score_routes(routes: list[Route]):
-    """Returns [(route, Scorecard), ...], warning about any routes that couldn't be scored."""
-    # the surroundings of all the routes are fetched at once, since they mostly overlap
-    surroundings_task = asyncio.create_task(
-        get_surroundings(tuple(route.points for route in routes))
-    )
-    results = await asyncio.gather(
-        *(get_edges(route.points) for route in routes), return_exceptions=True
-    )
-    surroundings = await surroundings_or_warn(surroundings_task)
-    scored: list[tuple[Route, Scorecard]] = []
-    for route, result in zip(routes, results):
-        if isinstance(result, BaseException):
-            st.warning(
-                redact(
-                    f"{route.provider} {route.label}: couldn't score ({type(result).__name__}: {result})"
-                )
-            )
-        else:
-            scored.append((route, score_ride(Ride(route.points, result, surroundings))))
-    return scored
-
-
-async def surroundings_or_warn(task: asyncio.Task[Surroundings]):
-    try:
-        return await task
-    except Exception as error:  # noqa: BLE001
-        st.warning(
-            f"Couldn't get the routes' surroundings from Overture Maps, so scenery, points of interest, and remoteness aren't scored ({type(error).__name__}: {error})"
-        )
-        return None
 
 
 def show_score_table(scored: list[tuple[Route, Scorecard]]):
@@ -309,7 +217,7 @@ def show_score_table(scored: list[tuple[Route, Scorecard]]):
     ]
     st.subheader("Scores")
     st.caption(
-        "Select a row to highlight that route on the map and send it to a navigation app."
+        "Select a row to highlight that route on the map and get to its details, including sending it to a navigation app."
     )
     st.dataframe(
         rows,
@@ -348,9 +256,34 @@ def show_scoring_criteria():
         )
 
 
+def route_details_button(route: Route):
+    """A button for the route's own page, which finds it again from these. A button rather than `st.page_link()`, which can't be made to stand out."""
+    if not st.button(
+        "Route details",
+        type="primary",
+        icon=":material/arrow_forward:",
+        icon_position="right",
+    ):
+        return
+    custom = (
+        {"from": st.session_state["origin"], "to": st.session_state["destination"]}
+        if trip == CUSTOM_TRIP
+        else {}
+    )
+    st.switch_page(
+        "app_pages/route.py",
+        query_params={
+            "trip_name": trip,
+            **custom,
+            "provider": route.provider,
+            "route": route.label,
+        },
+    )
+
+
 highlighted = asyncio.run(show_routes())
 # outside the event loop, since fragments can't be async
 if highlighted:
     with preview_area:
-        export_section(highlighted[1])
+        route_details_button(highlighted[1])
         street_preview_section(*highlighted)
