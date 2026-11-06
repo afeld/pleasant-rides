@@ -3,7 +3,7 @@ runOnSave = true
 # the Bike lanes map is ~9 MB of JSON, which compresses to ~1 MB
 enableWebsocketCompression = true
 
-# Sunny yellow, watermelon pink, and violet, to keep things fun. Light and dark are both defined so that the app follows the viewer's system setting and keeps Streamlit's appearance toggle. Text colors meet WCAG AA (at least 4.5:1), except for links in captions in light mode, since Streamlit fades captions, and white on the pink primary buttons in dark mode (~3.7:1), since a darker pink makes the many selected pills, whose text is that color, hard to read.
+# Saturated yellow and hot pink in light mode, electric indigo in dark mode, to keep things bold. Light and dark are both defined so that the app follows the viewer's system setting and keeps Streamlit's appearance toggle. Text colors meet WCAG AA (at least 4.5:1), except for links in captions in light mode, since Streamlit fades captions, and white on the pink primary buttons in dark mode (~3.5:1), since a darker pink makes the many selected pills, whose text is that color, hard to read.
 [theme]
 font = "Nunito:https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&display=swap"
 headingFont = "Fredoka:https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&display=swap"
@@ -13,20 +13,27 @@ buttonRadius = "full"
 showWidgetBorder = true
 
 [theme.light]
-primaryColor = "#D6246E"
-backgroundColor = "#FFFBEA"
-secondaryBackgroundColor = "#FFEDB0"
+primaryColor = "#A30050"
+backgroundColor = "#FFD60A"
+secondaryBackgroundColor = "#FFF3A3"
 # this dark since captions are this at 60% opacity, which still needs to pass
-textColor = "#1A1033"
-linkColor = "#0A5FC2"
-borderColor = "#FFC53D"
-dataframeHeaderBackgroundColor = "#FFEDB0"
+textColor = "#12002E"
+linkColor = "#0033CC"
+borderColor = "#12002E"
+dataframeHeaderBackgroundColor = "#FFF3A3"
+# Streamlit's defaults are too light on the yellow background
+greenTextColor = "#006B2E"
+orangeTextColor = "#A81E00"
+violetTextColor = "#5A00C8"
 
 [theme.dark]
-primaryColor = "#F0407F"
-backgroundColor = "#1C1245"
-secondaryBackgroundColor = "#2E2170"
-textColor = "#FFF8E1"
-linkColor = "#FFD84D"
-borderColor = "#5A4AB8"
-dataframeHeaderBackgroundColor = "#2E2170"
+primaryColor = "#FF2E88"
+backgroundColor = "#14005C"
+secondaryBackgroundColor = "#3A00C4"
+textColor = "#FFFFFF"
+linkColor = "#FFE600"
+borderColor = "#FFE600"
+dataframeHeaderBackgroundColor = "#3A00C4"
+greenTextColor = "#3DFF8F"
+orangeTextColor = "#FFA24D"
+violetTextColor = "#C79BFF"
