@@ -160,7 +160,7 @@ def layer(source: str):
 
 st.markdown(
     " ".join(
-        f":material/horizontal_rule: <span style='color: rgb({', '.join(map(str, COLORS[s]))})'>{s}</span>"
+        f"<span style='color: rgb({', '.join(map(str, COLORS[s]))})'>&#9632;</span> {s}"
         for s in sources
     ),
     unsafe_allow_html=True,
