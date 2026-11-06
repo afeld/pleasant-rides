@@ -91,14 +91,13 @@ def all_routes(provider_routes: dict[str, list[Route]]):
 
 def draw_map(
     provider_routes: dict[str, list[Route]],
-    segments: list[Segment] | None = None,
     preview: RoutePreview | None = None,
 ):
-    """`segments` are the highlighted route's, to color it by, and `preview` its street-level preview."""
+    """`preview` is the highlighted route's street-level preview."""
     routes = all_routes(provider_routes)
     if routes:
         highlight = next((r for r in routes if r.id == highlight_id), None)
-        m = build_map(routes, highlight, segments)
+        m = build_map(routes, highlight)
         if preview:
             preview.add_to(m)
         with map_placeholder:
@@ -206,7 +205,7 @@ def street_preview_section(
     provider_routes: dict[str, list[Route]], route: Route, segments: list[Segment]
 ):
     preview = asyncio.run(street_preview(route, segments))
-    draw_map(provider_routes, segments, preview)
+    draw_map(provider_routes, preview)
 
 
 async def street_preview(route: Route, segments: list[Segment]):
@@ -244,7 +243,8 @@ async def street_preview(route: Route, segments: list[Segment]):
         st.caption("Mapillary doesn't have street-level photos along this route.")
         return None
     return RoutePreview(
-        step_data(route.points, steps, segments),
+        # without their scores, since the swatches they'd color wouldn't mean anything without the route page's legend
+        step_data(route.points, steps, [s._replace(score=None) for s in segments]),
         token,
         route_miles(route.points),
         open=just_asked,
