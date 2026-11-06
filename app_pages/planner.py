@@ -6,12 +6,12 @@ import streamlit as st
 
 from pleasant_rides import login, street_photos
 from pleasant_rides.cached import fetch_routes, geocode, get_edges, route_steps
-from pleasant_rides.edges import describe
 from pleasant_rides.map import Segment, build_map
 from pleasant_rides.metrics import Metric
 from pleasant_rides.models import Route
 from pleasant_rides.providers import PROVIDERS, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey
+from pleasant_rides.route_details import route_segments
 from pleasant_rides.route_export import (
     MAX_WAYPOINTS,
     MAX_WAYPOINTS_MOBILE,
@@ -24,7 +24,7 @@ from pleasant_rides.route_export import (
 )
 from pleasant_rides.route_preview import RoutePreview, route_miles, step_data
 from pleasant_rides.scored_routes import score_routes
-from pleasant_rides.scoring import METRICS, Scorecard, edge_scores
+from pleasant_rides.scoring import METRICS, Scorecard
 from pleasant_rides.trips import CUSTOM_TRIP, TRIPS
 
 st.title("Pleasant Ride Planner")
@@ -159,11 +159,7 @@ async def show_scores(provider_routes: dict[str, list[Route]]):
     highlight = next((r for r, _ in scored if r.id == highlight_id), None)
     if highlight:
         # already fetched (and cached) for scoring
-        edges = await get_edges(highlight.points)
-        segments = [
-            Segment(e["length"], s, describe(e))
-            for e, s in zip(edges, edge_scores(edges))
-        ]
+        segments = route_segments(await get_edges(highlight.points))
         return provider_routes, highlight, segments
     return None
 
@@ -267,7 +263,7 @@ def show_score_table(scored: list[tuple[Route, Scorecard]]):
     ]
     st.subheader("Scores")
     st.caption(
-        "Select a row to highlight that route on the map and send it to a navigation app."
+        "Select a row to highlight that route on the map, send it to a navigation app, and get a link to its details."
     )
     st.dataframe(
         rows,
@@ -306,9 +302,30 @@ def show_scoring_criteria():
         )
 
 
+def route_link(route: Route):
+    """A link to the route's own page, which finds it again from these."""
+    custom = (
+        {"from": st.session_state["origin"], "to": st.session_state["destination"]}
+        if trip == CUSTOM_TRIP
+        else {}
+    )
+    st.page_link(
+        "app_pages/route.py",
+        label="Route details",
+        icon=":material/info:",
+        query_params={
+            "trip_name": trip,
+            **custom,
+            "provider": route.provider,
+            "route": route.label,
+        },
+    )
+
+
 highlighted = asyncio.run(show_routes())
 # outside the event loop, since fragments can't be async
 if highlighted:
     with preview_area:
         export_section(highlighted[1])
+        route_link(highlighted[1])
         street_preview_section(*highlighted)

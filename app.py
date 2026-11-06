@@ -7,6 +7,8 @@ page = st.navigation(
         st.Page("app_pages/planner.py", title="Planner"),
         st.Page("app_pages/benchmark.py", title="Benchmark"),
         st.Page("app_pages/bike_lanes.py", title="Bike lanes", url_path="bike-lanes"),
+        # reached from the planner, since it needs to know which route
+        st.Page("app_pages/route.py", title="Route", visibility="hidden"),
     ],
     position="top",
 )
