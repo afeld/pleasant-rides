@@ -1,10 +1,10 @@
 /* The homepage's outdoor scene, which Streamlit's theme can't do. It uses the same colors in light and dark mode, with its own text color, so that it stays daylit against either background. */
 .st-key-home-hero {
-  /* painted by art/paint.py. The minimum width keeps it from getting tiny on phones, where it's cropped instead, and the color is the top of its sky, for when the text makes this taller than the image. */
-  background: #8fd3f7 url("/app/static/town.webp") center bottom /
-    max(100%, 1100px) auto no-repeat;
-  /* leaves room for the town, which scales with the width */
-  padding: 3.5rem 1.5rem max(20rem, 30%);
+  /* art/town-source.jpeg, without the strip across its top. The minimum width keeps it from getting tiny on phones, where it's cropped instead, and the color is the top of its sky, for when the text makes this taller than the image. */
+  background: #95d8f2 url("/app/static/town.webp") center bottom /
+    max(100%, 900px) auto no-repeat;
+  /* leaves room for the hills and town, which scale with the width */
+  padding: 3.5rem 1.5rem max(22rem, 38%);
   border: 4px solid #12201a;
   border-radius: 1.75rem;
   box-shadow: 6px 6px 0 #12201a;
