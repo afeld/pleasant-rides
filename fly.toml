@@ -8,6 +8,8 @@ primary_region = "ewr"
   REQUIRE_LOGIN = "1"
   # our own BRouter (see brouter/fly.toml), over Fly's private network, rather than the busy public one
   BROUTER_URL = "http://pleasant-rides-brouter.flycast/brouter"
+  # likewise our own GraphHopper (see graphhopper/fly.toml), which doesn't need an API key and allows custom models
+  GRAPHHOPPER_URL = "http://pleasant-rides-graphhopper.flycast"
 
 [http_service]
   internal_port = 8080
