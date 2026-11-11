@@ -11,6 +11,9 @@ from .base import Provider
 
 PUBLIC_URL = "https://brouter.de/brouter"
 
+# for other servers, i.e. our own on Fly (see brouter/fly.toml), which has one CPU: there a ~25 km route took 8-9 s when warm, and 13-18 s as the first request after the machine started, so TIMEOUT_S cut those off. The server itself gives up after 300 s (-DmaxRunningTime in brouter/Dockerfile).
+SELF_HOSTED_TIMEOUT_S = 60
+
 # what the app uses: quaelnix-gravel (https://brouter.de/brouter/profiles2/quaelnix-gravel.brf), with its switches for considering traffic, preferring cycle routes, and avoiding steep inclines on. On the Benchmark page's sample trips it averaged 78.4, vs. 78.0 for pleasant.brf. Also turning on its preference for quiet areas (78.1; up to 77.9 when avoiding noise more strongly with quiet.brf), rivers (77.6), or forests (76.8) scored lower; the variants in benchmark/variants.py are the alternatives tried.
 DEFAULT_PROFILE = "quaelnix-gravel"
 DEFAULT_PARAMS = {
@@ -45,6 +48,7 @@ class BRouter(Provider):
         self.url = os.environ.get("BROUTER_URL") or PUBLIC_URL
         # the public server is free, so be polite to it
         self.request_interval_s = 2 if self.url == PUBLIC_URL else 0
+        self.timeout_s = TIMEOUT_S if self.url == PUBLIC_URL else SELF_HOSTED_TIMEOUT_S
         if params is None:
             params = DEFAULT_PARAMS if profile == DEFAULT_PROFILE else {}
         self.params = params
@@ -62,7 +66,9 @@ class BRouter(Provider):
             return self.profile
         key = (self.url, _digest(self.profile))
         if key not in _uploaded:
-            _uploaded[key] = await _upload(client, self.url, self.profile)
+            _uploaded[key] = await _upload(
+                client, self.url, self.profile, self.timeout_s
+            )
         return _uploaded[key]
 
     @property
@@ -89,7 +95,7 @@ class BRouter(Provider):
                     "format": "geojson",
                     **self._overrides(),
                 },
-                timeout=TIMEOUT_S,
+                timeout=self.timeout_s,
             )
         if response.is_error:
             if isinstance(self.profile, Path):
@@ -101,10 +107,10 @@ class BRouter(Provider):
         return [(f"BRouter ({self.profile_name})", points)]
 
 
-async def _upload(client: httpx.AsyncClient, url: str, profile: Path):
+async def _upload(client: httpx.AsyncClient, url: str, profile: Path, timeout_s: float):
     """Returns the ID the server gives the profile."""
     response = await client.post(
-        f"{url}/profile", content=profile.read_text(), timeout=TIMEOUT_S
+        f"{url}/profile", content=profile.read_text(), timeout=timeout_s
     )
     body = response.json()
     if response.is_error or "error" in body:

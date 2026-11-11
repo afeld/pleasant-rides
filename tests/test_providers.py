@@ -9,7 +9,12 @@ import pytest
 
 from pleasant_rides.http_client import USER_AGENT
 from pleasant_rides.models import Point
-from pleasant_rides.politeness import ProviderError, is_rate_limited, is_retryable
+from pleasant_rides.politeness import (
+    TIMEOUT_S,
+    ProviderError,
+    is_rate_limited,
+    is_retryable,
+)
 from pleasant_rides.providers import apple, brouter, iter_routes, redact
 from pleasant_rides.providers.base import MissingAPIKey, Provider
 from pleasant_rides.providers.brouter import BRouter
@@ -119,6 +124,7 @@ def test_brouter_url(requests, monkeypatch, tmp_path):
     monkeypatch.delenv("BROUTER_URL", raising=False)
     public = BRouter("trekking")
     assert public.request_interval_s > 0
+    assert public.timeout_s == TIMEOUT_S
 
     monkeypatch.setenv("BROUTER_URL", "http://localhost:17777/brouter")
     profile = tmp_path / "test.brf"
@@ -126,12 +132,16 @@ def test_brouter_url(requests, monkeypatch, tmp_path):
     local = BRouter(profile)
     # no need to be polite to your own server
     assert local.request_interval_s == 0
+    # your own server is slower than the public one, especially right after it starts
+    assert local.timeout_s > TIMEOUT_S
     assert BRouter("trekking").cache_key != public.cache_key
 
     asyncio.run(local.get_routes(ORIGIN, DESTINATION))
     upload, route = requests
     assert str(upload.url) == "http://localhost:17777/brouter/profile"
     assert route.url.host == "localhost"
+    for request in (upload, route):
+        assert request.extensions["timeout"]["read"] == local.timeout_s
 
 
 def test_valhalla_sends_its_costing_options(requests):
